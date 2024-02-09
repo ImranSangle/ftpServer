@@ -1,0 +1,3 @@
+echo building application...
+cmake -S . -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=1
+echo build completed.
