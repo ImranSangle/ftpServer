@@ -1,0 +1,5 @@
+echo running application..
+set -e
+cd build
+make ftpServer 
+./ftpServer
