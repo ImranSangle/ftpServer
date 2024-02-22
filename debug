@@ -2,4 +2,4 @@ echo starting debugger...
 set -e
 cd build
 make ftpServer
-gdb ./ftpServer -ex "set disassembly-flavour intel" -x ../gdbconfig.txt
+gdb ./ftpServer -ex "set disassembly-flavor intel" -x ../gdbconfig.txt

@@ -1,4 +1,3 @@
-#include <iostream>
 #include <cstring>
 
 void getWordAt(char* value,char* input,int index){
