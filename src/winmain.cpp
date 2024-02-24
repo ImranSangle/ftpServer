@@ -1,13 +1,17 @@
+#include <cctype>
 #include <cstdlib>
 #include <iostream>
 #include <minwindef.h>
 #include <string>
+#include <algorithm>
 #include <synchapi.h>
 #include <thread>
-#include <windows.h>
+#include <winsock2.h>
+#include <filesystem>
 
-#include <stringFunctions.h>
-#include <winsock.h>
+#include "sockets.h"
+#include "stringFunctions.h"
+
 
 static bool sendD = false;
 static int port = 3001;
@@ -19,112 +23,24 @@ static const char* loggedIn  = "230 logged in, proceed\r\n";
 static const char* ok  = "200 command type okay\r\n";
 static const char* syntaxError  = "500 syntax error\r\n";
 static const char* systemType  = "215 UNIX Type: Apache FtpServer\r\n";
-static const char* passiveMode  = "227 entering passive mode\n(192,168,31,2,11,185)\r\n";
+static const char* passiveMode  = "227 entering passive mode (192,168,31,2,";
 static const char* directoryChanged  = "250 directory changed to /\r\n";
-static const char* currentworkingdirctory = "257 '/' is current directory\r\n";
+static const char* currentworkingdirctory = "257 \"/o\" is current directory\r\n";
 static const char* ePassiveMode = "229 Entering Passive Mode (|||";
 static const char* fileStatusOkay = "150 File status okay; about to open data connection\r\n";
 static const char* closingDataConnection = "226 Closing data connection\r\n";
 static const char* abortSuccesfull = "226 ABOR command succesfull\r\n";
 static const char* notImplemented = "502 command not implemented\r\n";
+static const char* sizeInfo = "213 3484572\r\n";
 
-class Client{
-  SOCKET id;
-  public:
-  Client(SOCKET socket){
-    this->id = socket;
+std::string nlst(const char* path){
+  std::string names;
+  for(const auto &entry : std::filesystem::directory_iterator(path)){
+    names+=entry.path().filename().string();
+    names+="\r\n";
   }
-
-  bool isConnected(){
-    struct sockaddr_in addr;
-    int length = sizeof(addr);
-    int result = getpeername(this->id,(struct sockaddr*)&addr,&length);
-   // std::cout<<"the result is "<<result<<std::endl;
-    return (result != -1);
-  }
-  
-  std::string read(int* dataRead){
-    std::string buffer;
-    char raw[1000];
-    char command[100];
-    int readData = ::recv(this->id,raw,sizeof(raw),0);
-    *dataRead = readData;
-    raw[readData] = 0;
-    getWordAt(raw,command,0);
-    buffer = command;
-    return buffer;
-  }
-
-  int write(const char* data){
-    return  ::send(this->id,data,strlen(data),0);
-  }
-
-  void close(){
-    ::closesocket(this->id);
-    delete this;
-  }
-  
-  ~Client(){
-    std::cout<<"client destroyed"<<std::endl;
-  }
-};
-
-class ServerSocket{
-  SOCKET server;
-  int port;
-  sockaddr_in serverAddress;
-  bool socketCreated = false;
-  bool socketBound = false;
-  bool socketListening = false;
-
-  public:
-  ServerSocket(int port){
-    this->port = port;
-    this->server = socket(AF_INET,SOCK_STREAM,IPPROTO_TCP);
-    if(server < 0){
-      std::cout<<"failed to create server"<<std::endl;
-      std::exit(-1);
-    }
-    socketCreated = true;
-    serverAddress.sin_family = AF_INET;
-    serverAddress.sin_port = htons(port);
-    serverAddress.sin_addr.S_un.S_addr = INADDR_ANY;
-
-    if(bind(server,(sockaddr*)&serverAddress,sizeof(serverAddress))){
-      std::cout<<"failed to bind to the address to the socket"<<std::endl;
-      std::exit(-1);
-    }
-    socketBound = true;
-  }
-  
-  void start(){
-    if(socketCreated && socketBound){
-    listen(server,10);
-    socketListening = true;
-    std::cout<<"Server is listening on port "<<port<<std::endl;
-    }else{
-    std::cout<<"socket is not created or bounded error starting the server"<<std::endl;
-    std::exit(-1);
-    }
-  }
-
-  Client* getClient(){
-    if(socketListening){
-    Client* client  = new Client(accept(this->server,0,0)); 
-    return client;
-    }else{
-    std::cout<<"error: cant get client socket is not in listening state"<<std::endl;
-    std::exit(-1);
-    //return nullptr;
-    }
-  }
-
-  ~ServerSocket(){
-    closesocket(this->server);
-    std::cout<<"server destroyed"<<std::endl;
-  }
-
-};
+   return names;
+}
 
 void startPassiveMode(int port){
 
@@ -132,22 +48,37 @@ void startPassiveMode(int port){
 
   socket.start();
 
+  if(socket.waitTill(10)){
+    std::cout<<"timeout! closing the passive server with port : "<<port<<std::endl;
+    return;
+  }
+
   Client* client = socket.getClient();
+
+  client->setTimeout(100);
 
   std::cout<<"someone connected to passive server on port : "<<port<<std::endl;
 
   while(true){
     if(sendD){
-      client->write("Android\r\nDownloads\r\nMusic\r\nMovies\r\nothers\r\nVideos\r\n");
+      client->write(nlst("F:/Videos").c_str());
       std::cout<<"file list sent succesfully.."<<std::endl;
       sendD = false;
       client->close(); 
       return;
     }
-    Sleep(200);
+    int readData;
+    client->read(readData);
+    if(readData == 0){
+       std::cout<<"client disconnected the session on port : " <<port<<" closing this connection"<<std::endl;
+      client->close();
+      break;
+    }
   }
 
 }
+
+#ifdef _WIN64
 
 void loadwsa(){
   WSADATA ws;
@@ -157,53 +88,65 @@ void loadwsa(){
   }
 }
 
+#endif
+
 void serviceWorker(Client* client){
 
     client->write(ready);
 
-    while(client->isConnected()){
+    while(true){
       int readData;
-      std::string command = client->read(&readData);
+      std::string fullCommand = client->read(readData);
+      std::string command = getCode(fullCommand.c_str());
+      std::string code = getCommand(fullCommand.c_str());
+
+      std::transform(command.begin(), command.end(),command.begin(), [](unsigned char c){ return std::toupper(c);});
+
       if(readData <= 0){
-        std::cout<<"exiting from small loop"<<std::endl;
+        std::cout<<"client's main connection disconnected closing serviceWorker"<<std::endl;
         break;
       }
-      std::cout<<command<<std::endl;
-      //std::cout<<(int)command[4]<<std::endl;
+      std::cout<<fullCommand<<std::endl;
 
-      if(command  == "USER"){
+      if(command  == "USER" || command == "USER\r"){
         std::cout<<"username is correct asking for password"<<std::endl;
         client->write(askPassword);
       }
-      if(command  == "PASS"){
+      if(command  == "PASS" || command == "PASS\r"){
         std::cout<<"password is corrrect asking for method"<<std::endl;
         client->write(loggedIn);
       }
-      if(command  == "TYPE"){
+      if(command == "TYPE" || command  == "TYPE\r"){
         std::cout<<"client want's type binary accepting"<<std::endl;
         client->write(ok);
       }
-      if(command  == "FEAT\r"){
+      if(command == "SIZE" || command == "SIZE\r"){
+        std::cout<<"client is asking for size sending details"<<std::endl;
+        client->write(sizeInfo);
+      }
+      if(command == "FEAT" || command  == "FEAT\r"){
         std::cout<<"client is asking for features, sending not found"<<std::endl;
         client->write(syntaxError);
       }
-      if(command  == "SYST\r"){
+      if(command == "SYST" || command  == "SYST\r"){
         std::cout<<"client is asking for system, sending linux system"<<std::endl;
         client->write(systemType);
       }
-      if(command  == "CWD"){
+      if(command == "CWD" || command  == "CWD\r"){
         std::cout<<"client is asking for changing directory changing to /"<<std::endl;
         client->write(directoryChanged);
       }
-      if(command == "PWD\r"){
+      if(command == "PWD"  || command == "PWD\r"){
         std::cout<<"client is asking the current working directory sending"<<std::endl; 
         client->write(currentworkingdirctory);
       }
-      if(command  == "PASV\r"){
+      if(command == "PASV" || command  == "PASV\r"){
         std::cout<<"starting passive mode"<<std::endl;
         std::thread worker(startPassiveMode,port);
-        worker.detach();
-        client->write(passiveMode);
+        worker.detach(); 
+        int p1 = port/256;
+        int p2 = port%256;
+        client->write((std::string(passiveMode)+std::to_string(p1)+","+std::to_string(p2)+")\r\n").c_str());
         port++;
       }
       if(command == "EPSV" || command == "EPSV\r"){
@@ -233,7 +176,11 @@ void serviceWorker(Client* client){
         std::cout<<"asked LIST sending not implemented"<<std::endl;
         client->write(notImplemented);
       }
-      if(command  == "QUIT\r"){
+      if(command == "OPTS" || command == "OPTS\r"){
+        std::cout<<"asking for options sending not implemented"<<std::endl;
+        client->write(ok);
+      }
+      if(command == "QUIT" || command  == "QUIT\r"){
         std::cout<<"asked to quit the server quitting..."<<std::endl;
         break;
       }
@@ -252,11 +199,11 @@ int main(){
   socket.start();
 
   while(true){
-    std::cout<<"service ready waiting for new connections..."<<std::endl;  
+    std::cout<<"main thread ready ready waiting for new connections..."<<std::endl;  
 
     Client* client = socket.getClient();
 
-    std::cout<<"new client connected sending service ready"<<std::endl;  
+    std::cout<<"new client connected starting serviceWorker & sending service ready"<<std::endl;  
 
     std::thread worker(serviceWorker,client);
 
@@ -264,7 +211,9 @@ int main(){
 
   }
 
+  #ifdef _WIN64
   WSACleanup();
+  #endif
 
   return 0;
 }

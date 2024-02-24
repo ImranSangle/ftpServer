@@ -5,7 +5,13 @@ project(ftpServer)
 
 set(CMAKE_BUILD_TYPE Debug)
 
-add_executable(ftpServer src/winmain.cpp src/stringFunctions.cpp)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+add_executable(ftpServer 
+src/winmain.cpp
+src/sockets.cpp
+src/stringFunctions.cpp)
+
 target_include_directories(ftpServer PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(ftpServer PRIVATE ws2_32)
 

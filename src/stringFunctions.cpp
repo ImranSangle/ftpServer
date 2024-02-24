@@ -1,3 +1,5 @@
+#include <cstddef>
+#include <stringFunctions.h>
 #include <cstring>
 
 void getWordAt(char* value,char* input,int index){
@@ -20,4 +22,24 @@ void getWordAt(char* value,char* input,int index){
     }
   }
 
+}
+
+std::string getCode(const char* text){
+  std::string value = text;
+  size_t findResult = value.find(" ");
+  if(value.find(" ") == std::string::npos){
+    value = value.substr(0,value.length()-1);
+  }else{
+    value = value.substr(0,findResult);
+  }
+
+  return value;
+}
+
+std::string getCommand(const char* text){
+   std::string value = text;  
+
+   value = value.substr(value.find(" ")+1,value.size());
+
+   return value;
 }
