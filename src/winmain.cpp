@@ -1,4 +1,5 @@
 #include <cctype>
+#include <cstddef>
 #include <cstdlib>
 #include <iostream>
 #include <minwindef.h>
@@ -8,13 +9,15 @@
 #include <thread>
 #include <winsock2.h>
 #include <filesystem>
+#include <fstream>
 
 #include "sockets.h"
 #include "stringFunctions.h"
 
 
-static bool sendD = false;
+static int sendD = 0;
 static int port = 3001;
+std::string globalPath;
 
 //status codes--------------------------------------------
 static const char* ready = "220 service ready for new user\r\n";
@@ -22,16 +25,15 @@ static const char* askPassword = "331 username okay, password for username\r\n";
 static const char* loggedIn  = "230 logged in, proceed\r\n";
 static const char* ok  = "200 command type okay\r\n";
 static const char* syntaxError  = "500 syntax error\r\n";
-static const char* systemType  = "215 UNIX Type: Apache FtpServer\r\n";
+static const char* systemType  = "215 windows_NT\r\n";
 static const char* passiveMode  = "227 entering passive mode (192,168,31,2,";
-static const char* directoryChanged  = "250 directory changed to /\r\n";
-static const char* currentworkingdirctory = "257 \"/o\" is current directory\r\n";
+static const char* directoryChanged  = "250 directory changed to ";
 static const char* ePassiveMode = "229 Entering Passive Mode (|||";
 static const char* fileStatusOkay = "150 File status okay; about to open data connection\r\n";
 static const char* closingDataConnection = "226 Closing data connection\r\n";
 static const char* abortSuccesfull = "226 ABOR command succesfull\r\n";
 static const char* notImplemented = "502 command not implemented\r\n";
-static const char* sizeInfo = "213 3484572\r\n";
+static const char* transferComplete = "226 transfer complete\r\n";
 
 std::string nlst(const char* path){
   std::string names;
@@ -40,6 +42,58 @@ std::string nlst(const char* path){
     names+="\r\n";
   }
    return names;
+}
+
+std::string list(const char* path){
+  std::string names;
+  for(const auto &entry : std::filesystem::directory_iterator(path)){
+      if(entry.is_directory()){
+      names+= "drwxrwxrwx 2 sharique sharique 4096 Feb 25 00:54 "+entry.path().filename().string();
+      }else{
+      names+= "-rwxrwxrwx 1 sharique sharique "+std::to_string(entry.file_size())+" Feb 25 00:54 "+entry.path().filename().string();
+      }
+      names+= "\r\n";
+    }
+   return names;
+}
+
+void sendFile(Client* client){
+  std::ifstream input(globalPath);
+
+  if(input.is_open()){
+    input.seekg(0,std::ios::end);
+    size_t fileSize = input.tellg();
+    input.seekg(0,std::ios::beg);
+
+    char* buffer = new char[fileSize];
+    input.read(buffer,fileSize);
+    buffer[fileSize] = 0;
+    client->m_write(buffer,fileSize);
+    delete[] buffer;
+  }else{
+    std::cout<<"failed to open file from sendfile()"<<std::endl;
+  }
+}
+
+std::string removeExtras(const std::string& value){
+  std::string m_fileName;
+  size_t findResult = value.find("\r");
+
+  if(findResult == std::string::npos){
+    findResult = value.find("\n");
+    if(findResult == std::string::npos){
+       m_fileName = value.substr(0,value.length());
+    }else{
+       m_fileName = value.substr(0,findResult);
+    }
+  }else{
+       m_fileName = value.substr(0,findResult);
+  }
+  return m_fileName;
+}
+
+int getSize(const std::string& path,const std::string& filename){
+  return std::filesystem::file_size(path+"/"+removeExtras(filename));
 }
 
 void startPassiveMode(int port){
@@ -60,11 +114,18 @@ void startPassiveMode(int port){
   std::cout<<"someone connected to passive server on port : "<<port<<std::endl;
 
   while(true){
-    if(sendD){
-      client->write(nlst("F:/Videos").c_str());
-      std::cout<<"file list sent succesfully.."<<std::endl;
-      sendD = false;
+    if(sendD == 1){
+      client->write(list(globalPath.c_str()).c_str());
+      std::cout<<"list sent succesfully.."<<std::endl;
+      sendD = 0;
       client->close(); 
+      return;
+    }
+    if(sendD == 2){
+      sendFile(client);
+      std::cout<<"file sent succesfully.."<<std::endl;
+      sendD = 0;
+      client->close();  
       return;
     }
     int readData;
@@ -94,11 +155,13 @@ void serviceWorker(Client* client){
 
     client->write(ready);
 
+    Browze path("G:","/");
+
     while(true){
       int readData;
       std::string fullCommand = client->read(readData);
       std::string command = getCode(fullCommand.c_str());
-      std::string code = getCommand(fullCommand.c_str());
+      std::string subCommand = getCommand(fullCommand.c_str());
 
       std::transform(command.begin(), command.end(),command.begin(), [](unsigned char c){ return std::toupper(c);});
 
@@ -122,7 +185,8 @@ void serviceWorker(Client* client){
       }
       if(command == "SIZE" || command == "SIZE\r"){
         std::cout<<"client is asking for size sending details"<<std::endl;
-        client->write(sizeInfo);
+        int size = getSize(path.getPath(),subCommand);
+        client->write((std::string("213 ")+std::to_string(size)+"\r\n").c_str());
       }
       if(command == "FEAT" || command  == "FEAT\r"){
         std::cout<<"client is asking for features, sending not found"<<std::endl;
@@ -134,11 +198,16 @@ void serviceWorker(Client* client){
       }
       if(command == "CWD" || command  == "CWD\r"){
         std::cout<<"client is asking for changing directory changing to /"<<std::endl;
-        client->write(directoryChanged);
+        path.to(removeExtras(subCommand).c_str());
+        client->write((directoryChanged+path.getPath()+"\r\n").c_str());
+      }
+      if(command == "CDUP" || command == "CDUP\r"){
+        path.up();
+        client->write((directoryChanged+path.getPath()+"\r\n").c_str());
       }
       if(command == "PWD"  || command == "PWD\r"){
         std::cout<<"client is asking the current working directory sending"<<std::endl; 
-        client->write(currentworkingdirctory);
+        client->write(("257 \""+path.getPath()+"\"is the current directory\r\n").c_str());
       }
       if(command == "PASV" || command  == "PASV\r"){
         std::cout<<"starting passive mode"<<std::endl;
@@ -159,7 +228,7 @@ void serviceWorker(Client* client){
       if(command == "NLST" || command == "NLST\r"){
         std::cout<<"asked for nlst sending list"<<std::endl;
         client->write(fileStatusOkay);
-        sendD = true;
+        sendD = 1;
         Sleep(200);
         client->write(closingDataConnection);
         std::cout<<"passive data connection closed"<<std::endl;
@@ -173,8 +242,29 @@ void serviceWorker(Client* client){
         client->write(notImplemented);
       }
       if(command == "LIST" || command == "LIST\r"){
-        std::cout<<"asked LIST sending not implemented"<<std::endl;
-        client->write(notImplemented);
+        std::cout<<"asked LIST sending file list.."<<std::endl;
+        client->write(fileStatusOkay);
+        if(subCommand.length() > 9){
+        std::string newFilePath = "/"+subCommand.substr(subCommand.find(" ")+1,subCommand.length());
+        newFilePath = removeExtras(newFilePath);
+        path.setPath(newFilePath.c_str());
+        }else{
+        path.setPath("/");
+        }
+        globalPath = path.getPath();
+        sendD = 1;
+        Sleep(200);
+        client->write(closingDataConnection);
+        std::cout<<"passive data connection closed"<<std::endl;
+      }
+      if(command == "RETR" || command == "RETR\r"){
+        std::cout<<"asking for a file sending file to the client"<<std::endl;
+        client->write(fileStatusOkay);
+        globalPath = path.getDrive()+"/"+removeExtras(subCommand);
+        sendD = 2;
+        Sleep(500);
+        client->write(transferComplete);
+        std::cout<<"passive data connection closed"<<std::endl;
       }
       if(command == "OPTS" || command == "OPTS\r"){
         std::cout<<"asking for options sending not implemented"<<std::endl;
@@ -182,6 +272,7 @@ void serviceWorker(Client* client){
       }
       if(command == "QUIT" || command  == "QUIT\r"){
         std::cout<<"asked to quit the server quitting..."<<std::endl;
+        client->write("goodbye");
         break;
       }
     }

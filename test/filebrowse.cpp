@@ -1,6 +1,5 @@
 #include <iostream>
 #include <filesystem>
-#include "../include/stringFunctions.h"
 
 class Browze{
 private:
@@ -36,9 +35,6 @@ void listFiles(const char* path){
 
 int main(){
 
-  std::string name = "250 command okay you may proceed";
-
-  std::cout<<getCode(name.c_str())<<" : "<<getCommand(name.c_str())<<std::endl;
 
 
   return 0;

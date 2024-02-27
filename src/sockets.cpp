@@ -1,5 +1,6 @@
 
-#include <psdk_inc/_ip_types.h>
+#include <cstddef>
+#include <winsock2.h>
 #ifdef _WIN64
 #include <sockets.h>
 #include <stringFunctions.h>
@@ -48,6 +49,10 @@ int Client::write(const char* data){
   return  ::send(this->id,data,strlen(data),0);
 }
 
+int Client::m_write(const char* data,size_t size){
+  return ::send(this->id,data,size,0);
+}
+
 void Client::close(){
   ::closesocket(this->id);
   delete this;
@@ -73,6 +78,7 @@ ServerSocket::ServerSocket(int port){
 
     if(bind(server,(sockaddr*)&serverAddress,sizeof(serverAddress)) == SOCKET_ERROR){
       std::cout<<"failed to bind to the address to the socket"<<std::endl;
+      closesocket(this->server);
       std::exit(-1);
     }
     socketBound = true;
@@ -85,6 +91,7 @@ ServerSocket::ServerSocket(int port){
     std::cout<<"Server is listening on port "<<port<<std::endl;
     }else{
     std::cout<<"socket is not created or bounded error starting the server"<<std::endl;
+    closesocket(this->server);
     std::exit(-1);
     }
   }
@@ -95,6 +102,7 @@ ServerSocket::ServerSocket(int port){
     return client;
     }else{
     std::cout<<"error: cant get client socket is not in listening state"<<std::endl;
+    closesocket(this->server);
     std::exit(-1);
     //return nullptr;
     }

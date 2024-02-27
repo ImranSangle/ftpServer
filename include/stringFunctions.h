@@ -2,7 +2,28 @@
 
 #include <string>
 
-void getWordAt(char* value,char* input,int index);
+class Browze{
+private:
+  std::string path;
+  std::string drive;
+public:
+  Browze(const char*,const char* m_path);
+
+  std::string getPath();
+
+  std::string getDrive();
+  
+  void setPath(const char*);
+  
+  void setDrive(const char*);
+
+  void to(const char* m_name);
+
+  void up();
+};
+
+void getWordAt(const char*,char*,int);
+
 
 std::string getCode(const char*);
 

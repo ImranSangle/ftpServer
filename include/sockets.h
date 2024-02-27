@@ -1,6 +1,7 @@
 #pragma once
 
 #include <_timeval.h>
+#include <cstddef>
 #ifdef _WIN64
 
 #include <winsock2.h>
@@ -18,6 +19,8 @@ class Client{
   std::string read(int& dataRead);
 
   int write(const char* data);
+
+  int m_write(const char*,size_t);
 
   void close();
   

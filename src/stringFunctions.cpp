@@ -2,7 +2,42 @@
 #include <stringFunctions.h>
 #include <cstring>
 
-void getWordAt(char* value,char* input,int index){
+//browze class definition------------------------------
+Browze::Browze(const char* m_drive,const char* m_path){
+     this->path = m_path;  
+     this->drive = m_drive;
+  }
+
+  std::string Browze::getPath(){
+    return this->drive+this->path;
+  }
+
+  std::string Browze::getDrive(){
+    return this->drive;
+  }
+  
+  void Browze::setPath(const char* m_path){
+     this->path = m_path; 
+  }
+  
+  void Browze::setDrive(const char* m_letter){
+     this->drive = m_letter;
+  }
+  
+  void Browze::to(const char* m_name){
+    if(this->path[this->path.size()-1] != '/'){
+      this->path+="/";
+    }
+    this->path+=m_name;
+  }
+
+  void Browze::up(){
+   this->path = this->path.substr(0,this->path.rfind("/"));
+  }
+
+//browze end-----------------
+
+void getWordAt(const char* value,char* input,int index){
   int spaceCount = 0;
   int length = strlen(value);
   int srcPosition = 0;
