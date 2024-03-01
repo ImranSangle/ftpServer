@@ -11,6 +11,8 @@ class Client{
   SOCKET id;
   public:
   Client(SOCKET socket);
+  
+  SOCKET getId();
 
   bool isConnected();
 
@@ -20,7 +22,7 @@ class Client{
 
   int write(const char* data);
 
-  int m_write(const char*,size_t);
+  int m_write(const char*,const size_t&);
 
   void close();
   
@@ -37,13 +39,13 @@ class ServerSocket{
   bool socketListening = false;
 
   public:
-  ServerSocket(int port);
+  ServerSocket(const int& port);
   
   void start();
 
   Client* getClient();
 
-  int waitTill(int);
+  int waitTill(const int&);
 
   ~ServerSocket();
 

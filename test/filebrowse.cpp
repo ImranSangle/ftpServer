@@ -33,9 +33,29 @@ void listFiles(const char* path){
 
 }
 
+class Object{
+  public:
+  int x;
+  Object(){
+    std::cout<<"object created"<<std::endl;
+  }
+
+  ~Object(){
+    std::cout<<"object destroyed"<<std::endl;
+  }
+};
+
+Object getObject(){
+
+   Object x;
+   Object y;
+
+  return x;
+}
+
 int main(){
 
-
+  Object one = getObject();  
 
   return 0;
 }

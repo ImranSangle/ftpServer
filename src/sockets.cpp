@@ -23,6 +23,10 @@ bool Client::isConnected(){
   }
 }
 
+SOCKET Client::getId(){
+  return this->id; 
+}
+
 bool Client::setTimeout(int milliseconds){
   timeval timeout;
   timeout.tv_sec = milliseconds;
@@ -49,7 +53,7 @@ int Client::write(const char* data){
   return  ::send(this->id,data,strlen(data),0);
 }
 
-int Client::m_write(const char* data,size_t size){
+int Client::m_write(const char* data,const size_t& size){
   return ::send(this->id,data,size,0);
 }
 
@@ -64,7 +68,7 @@ Client::~Client(){
 
 //socket class function definitions ---------------------------
 
-ServerSocket::ServerSocket(int port){
+ServerSocket::ServerSocket(const int& port){
     this->port = port;
     this->server = socket(AF_INET,SOCK_STREAM,IPPROTO_TCP);
     if(server == INVALID_SOCKET){
@@ -108,7 +112,7 @@ ServerSocket::ServerSocket(int port){
     }
   }
 
-  int ServerSocket::waitTill(int sec){
+  int ServerSocket::waitTill(const int& sec){
 
   timeval timeout;
   timeout.tv_sec = sec;

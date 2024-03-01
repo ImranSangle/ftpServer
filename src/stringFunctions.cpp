@@ -9,6 +9,10 @@ Browze::Browze(const char* m_drive,const char* m_path){
   }
 
   std::string Browze::getPath(){
+    return this->path;
+  }
+
+  std::string Browze::getFullPath(){
     return this->drive+this->path;
   }
 

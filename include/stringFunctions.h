@@ -11,6 +11,8 @@ public:
 
   std::string getPath();
 
+  std::string getFullPath();
+
   std::string getDrive();
   
   void setPath(const char*);
