@@ -9,11 +9,11 @@ private:
 public:
   Browze(const char*,const char* m_path);
 
-  std::string getPath();
+  std::string getPath() const ;
 
-  std::string getFullPath();
+  std::string getFullPath() const ;
 
-  std::string getDrive();
+  std::string getDrive() const ;
   
   void setPath(const char*);
   

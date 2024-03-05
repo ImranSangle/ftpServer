@@ -20,6 +20,8 @@ class Client{
   
   std::string read(int& dataRead);
 
+  int m_read(const int&,char*);
+
   int write(const char* data);
 
   int m_write(const char*,const size_t&);

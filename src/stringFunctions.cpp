@@ -8,20 +8,28 @@ Browze::Browze(const char* m_drive,const char* m_path){
      this->drive = m_drive;
   }
 
-  std::string Browze::getPath(){
+  std::string Browze::getPath() const {
     return this->path;
   }
 
-  std::string Browze::getFullPath(){
+  std::string Browze::getFullPath() const {
     return this->drive+this->path;
   }
 
-  std::string Browze::getDrive(){
+  std::string Browze::getDrive() const {
     return this->drive;
   }
   
   void Browze::setPath(const char* m_path){
-     this->path = m_path; 
+     if(m_path[0] != '/'){
+       this->path = "/";
+       this->path += m_path;
+      }else{
+       this->path = m_path; 
+      }
+      if(this->path[this->path.length()-1] == '/' && this->path.length() > 1){
+        this->path.pop_back();
+      }
   }
   
   void Browze::setDrive(const char* m_letter){
@@ -37,6 +45,9 @@ Browze::Browze(const char* m_drive,const char* m_path){
 
   void Browze::up(){
    this->path = this->path.substr(0,this->path.rfind("/"));
+   if(this->path.length() == 0){
+       this->path = "/";
+    }
   }
 
 //browze end-----------------
@@ -68,6 +79,9 @@ std::string getCode(const char* text){
   size_t findResult = value.find(" ");
   if(value.find(" ") == std::string::npos){
     value = value.substr(0,value.length()-1);
+    if(value.find("\r") != std::string::npos){
+      value.pop_back();
+    }
   }else{
     value = value.substr(0,findResult);
   }

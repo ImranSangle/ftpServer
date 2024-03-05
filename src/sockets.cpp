@@ -39,7 +39,7 @@ bool Client::setTimeout(int milliseconds){
 
 std::string Client::read(int& dataRead){
   std::string buffer;
-  char raw[1000];
+  char raw[4096];
   //char command[100];
   int readData = ::recv(this->id,raw,sizeof(raw),0);
   dataRead = readData;
@@ -47,6 +47,12 @@ std::string Client::read(int& dataRead){
   //getWordAt(raw,command,0);
   buffer = raw;
   return buffer;
+}
+
+int Client::m_read(const int& bufferSize,char* o_buffer){
+  
+  return ::recv(this->id,o_buffer,bufferSize,0);
+  
 }
 
 int Client::write(const char* data){
