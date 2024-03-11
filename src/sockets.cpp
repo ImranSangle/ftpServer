@@ -108,8 +108,14 @@ ServerSocket::ServerSocket(const int& port){
 
   Client* ServerSocket::getClient(){
     if(socketListening){
-    Client* client  = new Client(accept(this->server,0,0)); 
-    return client;
+    SOCKET clientSocket = accept(this->server,0,0);
+      if(clientSocket != INVALID_SOCKET){
+        Client* client  = new Client(clientSocket); 
+        return client;
+      }else{
+        std::cout<<"from sockets.cpp = client socket is INVALID_SOCKET returning nullptr"<<std::endl;
+        return nullptr;
+      }
     }else{
     std::cout<<"error: cant get client socket is not in listening state"<<std::endl;
     closesocket(this->server);
@@ -143,7 +149,7 @@ ServerSocket::ServerSocket(const int& port){
 
   ServerSocket::~ServerSocket(){
     ::closesocket(this->server);
-    std::cout<<"server destroyed"<<std::endl;
+    std::cout<<"server with port "<<this->port<<" destroyed"<<std::endl;
   }
 
 #endif 

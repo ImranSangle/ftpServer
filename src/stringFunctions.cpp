@@ -91,8 +91,13 @@ std::string getCode(const char* text){
 
 std::string getCommand(const char* text){
    std::string value = text;  
+   size_t findPos = value.find(" ");
 
+   if(findPos != std::string::npos){
    value = value.substr(value.find(" ")+1,value.size());
+   }else{
+    value = "";
+    }
 
    return value;
 }

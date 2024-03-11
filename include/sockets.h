@@ -16,7 +16,7 @@ class Client{
 
   bool isConnected();
 
-  bool setTimeout(int seconds);
+  bool setTimeout(int);
   
   std::string read(int& dataRead);
 

@@ -54,8 +54,7 @@ Object getObject(){
 }
 
 int main(){
-
-  Object one = getObject();  
+  
 
   return 0;
 }
