@@ -1,15 +1,9 @@
-#include <cctype>
-#include <cstddef>
-#include <cstdlib>
 #include <functional>
 #include <iostream>
-#include <minwindef.h>
 #include <mutex>
 #include <string>
 #include <algorithm>
-#include <synchapi.h>
 #include <thread>
-#include <winsock2.h>
 #include <filesystem>
 #include <fstream>
 
@@ -281,8 +275,12 @@ int getSize(const std::string& path, const std::string& filename) {
 }
 
 void getDataClient(Client** client,ServerSocket* socket,std::mutex& m_mutex){
-    
+
+    if(socket->waitTill(2) == 0){
+
     *client = socket->getClient(); 
+
+    }
 
     if(*client != nullptr){
       std::cout<<"getDataClient : got a client for "<<(*client)->getId()<<std::endl;
@@ -484,7 +482,7 @@ void serviceWorker(Client* client){
             newFilePath = removeExtras(subCommand);
             path.setPath(newFilePath.c_str());
             }else{
-            //path.setPath("/");
+            path.setPath("/");
             }
             std::cout<<"the mlsd path after is "<<path.getFullPath()<<std::endl;
             mutex.lock();
@@ -513,7 +511,7 @@ void serviceWorker(Client* client){
               newFilePath = removeExtras(newFilePath);
               path.setPath(newFilePath.c_str());
             }else if(subCommand.find("-a") != std::string::npos){
-              path.setPath("/");
+              // path.setPath("/");
             }
             
 
@@ -656,7 +654,9 @@ void serviceWorker(Client* client){
 
 int main(){
 
+  #ifdef _WIN64
   loadwsa();
+  #endif
 
   ServerSocket socket(3000);
 
