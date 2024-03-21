@@ -191,7 +191,7 @@ std::string Client::read(int& dataRead){
   std::string buffer;
   char raw[4096];
   //char command[100];
-  int readData = ::recv(this->id,raw,sizeof(raw),0);
+  int readData = ::read(this->id,raw,sizeof(raw));
   dataRead = readData;
   raw[readData] = 0;
   //getWordAt(raw,command,0);
@@ -201,16 +201,16 @@ std::string Client::read(int& dataRead){
 
 int Client::m_read(const int& bufferSize,char* o_buffer){
   
-  return ::recv(this->id,o_buffer,bufferSize,0);
+  return ::read(this->id,o_buffer,bufferSize);
   
 }
 
 int Client::write(const char* data){
-  return  ::send(this->id,data,strlen(data),0);
+  return  ::write(this->id,data,strlen(data));
 }
 
 int Client::m_write(const char* data,const size_t& size){
-  return ::send(this->id,data,size,0);
+  return ::write(this->id,data,size);
 }
 
 void Client::close(){

@@ -16,8 +16,24 @@ Browze::Browze(const char* m_drive,const char* m_path){
     return this->drive+this->path;
   }
 
+  std::string Browze::getTruePath() const {
+    return this->prefixPath+this->path;
+  }
+
+  std::string Browze::getTrueFullPath() const {
+    return this->drive+this->prefixPath+this->path;
+  }
+
   std::string Browze::getDrive() const {
     return this->drive;
+  }
+
+  std::string Browze::getPrefixPath() const {
+    return this->prefixPath;
+  }
+
+  void Browze::setPrefixPath(const char* m_prefixPath){
+       this->prefixPath = m_prefixPath;
   }
   
   void Browze::setPath(const char* m_path){

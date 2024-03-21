@@ -20,7 +20,7 @@ static const char* loggedIn  = "230 logged in, proceed\r\n";
 static const char* ok  = "200 command type okay\r\n";
 static const char* syntaxError  = "500 syntax error\r\n";
 static const char* systemType  = "215 windows_NT\r\n";
-static const char* passiveMode  = "227 entering passive mode (192,168,31,2,";
+static const char* passiveMode  = "227 entering passive mode (192,168,31,4,";
 static const char* directoryChanged  = "250 directory changed to ";
 static const char* ePassiveMode = "229 Entering Passive Mode (|||";
 static const char* fileStatusOkay = "150 File status okay; about to open data connection\r\n";
@@ -118,6 +118,10 @@ std::string list(const char* path) {
 }
 
 void sendFile(Client* client,const std::string& m_path,size_t m_offset) {
+    if(client == nullptr){
+       std::cout<<"from sendfile() : client is nullptr returning."<<std::endl;
+       return;
+    }
     std::ifstream input(m_path, std::ios::binary); // Open file in binary mode
 
     if (input.is_open()) {
@@ -136,7 +140,10 @@ void sendFile(Client* client,const std::string& m_path,size_t m_offset) {
             size_t bytesReadThisRound = input.gcount(); 
 
             if (bytesReadThisRound > 0) {
-                client->m_write(buffer, bytesReadThisRound);
+                if(client->m_write(buffer, bytesReadThisRound) <=0){
+                  std::cout<<"from sendfile() : failed to send file breaking the loop."<<std::endl;
+                  break;
+                }
                 bytesRead += bytesReadThisRound;
             }
         }
@@ -160,7 +167,7 @@ void recieveFile(Client* client,const std::string& m_path,size_t m_offset){
 
       const size_t bufferSize = 4096;
       char buffer[bufferSize];
-      int dataRead;
+      int dataRead = 1;
       
       while(dataRead > 0){
           dataRead = client->m_read(bufferSize,buffer);
@@ -205,16 +212,16 @@ bool isAbsolutePath(const std::string& m_path){
 bool mkd(const std::string& name,const Browze path){
      if(isAbsolutePath(name)){
         std::string c_name = formatPath(name);
-       if(!std::filesystem::exists(path.getDrive()+c_name)){
-         if(std::filesystem::create_directory(path.getDrive()+c_name)){
+       if(!std::filesystem::exists(path.getDrive()+path.getPrefixPath()+c_name)){
+         if(std::filesystem::create_directory(path.getDrive()+path.getPrefixPath()+c_name)){
               std::cout<<"created a new directory "<<name<<std::endl;
               return true;
          }
 
        }
 
-    }else if(!std::filesystem::exists(path.getPath()+"/"+name)){
-           if(std::filesystem::create_directory(path.getPath()+"/"+name)){
+    }else if(!std::filesystem::exists(path.getTruePath()+"/"+name)){
+           if(std::filesystem::create_directory(path.getTruePath()+"/"+name)){
                 std::cout<<"created a new directory "<<name<<std::endl;
                 return true;
             }
@@ -233,15 +240,15 @@ bool renameFile(const std::string& m_oldname,const std::string& m_newname,const 
 
   if(isOldAbsoulute){
     if(isNewAbsoulute){
-      std::filesystem::rename(path.getDrive()+n_oldname,path.getDrive()+n_newname);
+      std::filesystem::rename(path.getDrive()+path.getPrefixPath()+n_oldname,path.getDrive()+path.getPrefixPath()+n_newname);
     }else{
-      std::filesystem::rename(path.getDrive()+n_oldname,path.getFullPath()+n_newname);
+      std::filesystem::rename(path.getDrive()+path.getPrefixPath()+n_oldname,path.getTrueFullPath()+n_newname);
     }
   }else{
     if(isNewAbsoulute){
-      std::filesystem::rename(path.getFullPath()+n_oldname,path.getDrive()+n_newname);
+      std::filesystem::rename(path.getTrueFullPath()+n_oldname,path.getDrive()+path.getPrefixPath()+n_newname);
     }else{
-      std::filesystem::rename(path.getFullPath()+n_oldname,path.getFullPath()+n_newname);
+      std::filesystem::rename(path.getTrueFullPath()+n_oldname,path.getTrueFullPath()+n_newname);
     }
   }
     return true;
@@ -328,7 +335,9 @@ void serviceWorker(Client* client){
 
     client->write(ready);
 
-    Browze path("G:","/");
+    Browze path("","/");
+
+    path.setPrefixPath("/storage/emulated/0");
 
     while(true){
       int readData;
@@ -363,7 +372,7 @@ void serviceWorker(Client* client){
 
       (command == "SIZE"){
         std::cout<<"client is asking for size sending details"<<std::endl;
-        int size = getSize(path.getFullPath(),subCommand);
+        int size = getSize(path.getTrueFullPath(),subCommand);
         client->write((std::string("213 ")+std::to_string(size)+"\r\n").c_str());
       }else if
 
@@ -408,20 +417,20 @@ void serviceWorker(Client* client){
         }else{
           path.to(removeExtras(subCommand).c_str());
         }
-        std::cout<<"client is asking for changing directory changing to "<<path.getFullPath()<<std::endl;
+        std::cout<<"client is asking for changing directory changing to "<<path.getTrueFullPath()<<std::endl;
         client->write((directoryChanged+path.getPath()+"\r\n").c_str());
       }else if
 
       (command == "CDUP"){
-        std::cout<<"path before cdup is "<<path.getFullPath()<<std::endl;
+        std::cout<<"path before cdup is "<<path.getTrueFullPath()<<std::endl;
         path.up();
         client->write((directoryChanged+path.getPath()+"\r\n").c_str());
-        std::cout<<"command cdup executed the path is now "<<path.getPath()<<std::endl;
+        std::cout<<"command cdup executed the path is now "<<path.getTruePath()<<std::endl;
       }else if
 
       (command == "PWD"){
         client->write(("257 \""+path.getPath()+"\"is the current directory\r\n").c_str());
-        std::cout<<"client is asking the current working directory sending "<<path.getPath()<<std::endl; 
+        std::cout<<"client is asking the current working directory sending "<<path.getTruePath()<<std::endl; 
       }else if
 
       (command == "PASV"){
@@ -453,7 +462,7 @@ void serviceWorker(Client* client){
       }else if
 
       (command == "NLST"){
-        if(dataSocket == nullptr || dataClient == nullptr){
+        if(dataSocket == nullptr){
            client->write("503 PORT or PASV must be issued first\r\n");
         
         }else{
@@ -461,7 +470,7 @@ void serviceWorker(Client* client){
           client->write(fileStatusOkay);
           
           mutex.lock();
-          dataClient->write(nlst(path.getFullPath().c_str()).c_str());
+          dataClient->write(nlst(path.getTrueFullPath().c_str()).c_str());
           std::cout<<"list sent succesfully.."<<std::endl;
           dataClient->close();
           dataClient = nullptr;
@@ -472,7 +481,7 @@ void serviceWorker(Client* client){
       }else if
 
       (command == "MLSD"){
-        if(dataSocket == nullptr || dataClient == nullptr){
+        if(dataSocket == nullptr){
            client->write("503 PORT or PASV must be issued first\r\n");
         }else{
             std::cout<<"asked MLSD sending mlsdList"<<std::endl;
@@ -484,9 +493,9 @@ void serviceWorker(Client* client){
             }else{
             path.setPath("/");
             }
-            std::cout<<"the mlsd path after is "<<path.getFullPath()<<std::endl;
+            std::cout<<"the mlsd path after is "<<path.getTrueFullPath()<<std::endl;
             mutex.lock();
-            dataClient->write(mlsd(path.getFullPath().c_str()).c_str());
+            dataClient->write(mlsd(path.getTrueFullPath().c_str()).c_str());
             std::cout<<"list sent succesfully.."<<std::endl;
             dataClient->close(); 
             dataClient = nullptr;
@@ -511,14 +520,14 @@ void serviceWorker(Client* client){
               newFilePath = removeExtras(newFilePath);
               path.setPath(newFilePath.c_str());
             }else if(subCommand.find("-a") != std::string::npos){
-              // path.setPath("/");
+              path.setPath("/");
             }
             
 
               mutex.lock();
               std::cout<<"mutex locked from LIST"<<std::endl;
-              std::cout<<path.getFullPath()<<" is the list path"<<std::endl;
-              dataClient->write(list(path.getFullPath().c_str()).c_str());
+              std::cout<<path.getTrueFullPath()<<" is the list path"<<std::endl;
+              dataClient->write(list(path.getTrueFullPath().c_str()).c_str());
               std::cout<<"list sent succesfully.."<<std::endl;
               dataClient->close(); 
               dataClient = nullptr;
@@ -534,9 +543,9 @@ void serviceWorker(Client* client){
         std::cout<<"asking for a file sending file to the client"<<std::endl;
         std::string retrPath;
         if(isAbsolutePath(subCommand)){
-          retrPath = path.getDrive()+"/"+removeExtras(subCommand);
+          retrPath = path.getDrive()+path.getPrefixPath()+"/"+removeExtras(subCommand);
         }else{
-          retrPath = path.getFullPath()+"/"+removeExtras(subCommand);
+          retrPath = path.getTrueFullPath()+"/"+removeExtras(subCommand);
         }
         std::cout<<"the RETR path is "<<retrPath<<std::endl;
 
@@ -575,11 +584,11 @@ void serviceWorker(Client* client){
           std::string storPath;
           std::string checkPath;
           if(isAbsolutePath(subCommand)){
-            storPath = path.getDrive()+"/"+removeExtras(subCommand);
+            storPath = path.getDrive()+path.getPrefixPath()+"/"+removeExtras(subCommand);
             checkPath = storPath.substr(0,storPath.rfind("/"));
           }else{
-            storPath = path.getFullPath()+"/"+removeExtras(subCommand);
-            checkPath = path.getFullPath();
+            storPath = path.getTrueFullPath()+"/"+removeExtras(subCommand);
+            checkPath = path.getTrueFullPath();
           }
 
             if(std::filesystem::exists(checkPath)){

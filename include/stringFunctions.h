@@ -6,15 +6,24 @@ class Browze{
 private:
   std::string path;
   std::string drive;
+  std::string prefixPath;
 public:
   Browze(const char*,const char* m_path);
 
   std::string getPath() const ;
 
+  std::string getTruePath() const ;
+
   std::string getFullPath() const ;
 
+  std::string getTrueFullPath() const ;
+
   std::string getDrive() const ;
-  
+
+  std::string getPrefixPath() const ;
+
+  void setPrefixPath(const char*);
+
   void setPath(const char*);
   
   void setDrive(const char*);
