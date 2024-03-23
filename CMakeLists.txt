@@ -3,6 +3,8 @@ cmake_minimum_required(VERSION 3.5)
 
 project(ftpServer)
 
+enable_testing()
+
 set(CMAKE_BUILD_TYPE Debug)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
@@ -19,3 +21,5 @@ target_link_libraries(ftpServer PRIVATE ws2_32)
 endif()
 
 install(TARGETS ftpServer DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/bin)
+
+add_subdirectory(test)

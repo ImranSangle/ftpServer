@@ -157,6 +157,8 @@ ServerSocket::ServerSocket(const int& port){
 
 #ifdef __linux__
 
+#include <signal.h>
+
 Client::Client(int socket){
   this->id = socket;
 }
@@ -210,6 +212,7 @@ int Client::write(const char* data){
 }
 
 int Client::m_write(const char* data,const size_t& size){
+  signal(SIGPIPE,SIG_IGN);
   return ::write(this->id,data,size);
 }
 
