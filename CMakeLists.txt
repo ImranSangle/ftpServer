@@ -5,7 +5,9 @@ project(ftpServer)
 
 enable_testing()
 
-set(CMAKE_BUILD_TYPE Debug)
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+add_definitions(-DDEBUG)
+endif()
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 

@@ -9,6 +9,7 @@
 
 #include "sockets.h"
 #include "stringFunctions.h"
+#include "log.h"
 
 
 static int port = 3001;
@@ -20,7 +21,7 @@ static const char* loggedIn  = "230 logged in, proceed\r\n";
 static const char* ok  = "200 command type okay\r\n";
 static const char* syntaxError  = "500 syntax error\r\n";
 static const char* systemType  = "215 windows_NT\r\n";
-static const char* passiveMode  = "227 entering passive mode (192,168,31,4,";
+static const char* passiveMode  = "227 entering passive mode (192,168,31,2,";
 static const char* directoryChanged  = "250 directory changed to ";
 static const char* ePassiveMode = "229 Entering Passive Mode (|||";
 static const char* fileStatusOkay = "150 File status okay; about to open data connection\r\n";
@@ -119,7 +120,7 @@ std::string list(const char* path) {
 
 void sendFile(Client* client,const std::string& m_path,size_t m_offset) {
     if(client == nullptr){
-       std::cout<<"from sendfile() : client is nullptr returning."<<std::endl;
+       LOG("from sendfile() : client is nullptr returning.");
        return;
     }
     std::ifstream input(m_path, std::ios::binary); // Open file in binary mode
@@ -141,7 +142,7 @@ void sendFile(Client* client,const std::string& m_path,size_t m_offset) {
 
             if (bytesReadThisRound > 0) {
                 if(client->m_write(buffer, bytesReadThisRound) <=0){
-                  std::cout<<"from sendfile() : failed to send file breaking the loop."<<std::endl;
+                  LOG("from sendfile() : failed to send file breaking the loop.");
                   break;
                 }
                 bytesRead += bytesReadThisRound;
@@ -154,7 +155,7 @@ void sendFile(Client* client,const std::string& m_path,size_t m_offset) {
 
         input.close(); // Close the file after reading
     } else {
-        std::cout << "Failed to open file from sendFile()" << std::endl;
+        LOG("Failed to open file from sendFile()");
     }
 }
 
@@ -180,7 +181,7 @@ void recieveFile(Client* client,const std::string& m_path,size_t m_offset){
        output.close();
 
     }else{
-       std::cout<<"failed to send the file error from recieveFile()"<<std::endl;
+       LOG("failed to send the file error from recieveFile()");
     }
 }
 
@@ -214,7 +215,7 @@ bool mkd(const std::string& name,const Browze path){
         std::string c_name = formatPath(name);
        if(!std::filesystem::exists(path.getDrive()+path.getPrefixPath()+c_name)){
          if(std::filesystem::create_directory(path.getDrive()+path.getPrefixPath()+c_name)){
-              std::cout<<"created a new directory "<<name<<std::endl;
+             LOG("created a new directory "<<name);
               return true;
          }
 
@@ -222,7 +223,7 @@ bool mkd(const std::string& name,const Browze path){
 
     }else if(!std::filesystem::exists(path.getTruePath()+"/"+name)){
            if(std::filesystem::create_directory(path.getTruePath()+"/"+name)){
-                std::cout<<"created a new directory "<<name<<std::endl;
+             LOG("created a new directory "<<name);
                 return true;
             }
     }   
@@ -254,7 +255,7 @@ bool renameFile(const std::string& m_oldname,const std::string& m_newname,const 
     return true;
 
   }catch(const std::filesystem::filesystem_error& e){
-      std::cout<<"error occoured while renaming "<<e.what()<<std::endl;
+       LOG("error occoured while renaming "<<e.what());
       return false;
   }
 
@@ -290,24 +291,24 @@ void getDataClient(Client** client,ServerSocket* socket,std::mutex& m_mutex){
     }
 
     if(*client != nullptr){
-      std::cout<<"getDataClient : got a client for "<<(*client)->getId()<<std::endl;
+       LOG("getDataClient : got a client for "<<(*client)->getId());
     }else{
-      std::cout<<"getDataClient : socket->getclient() returned with nullptr"<<std::endl;
+       LOG("getDataClient : socket->getclient() returned with nullptr");
     }
 
     m_mutex.unlock();
-    std::cout<<"mutex unlocked from getDataClient"<<std::endl;
+     LOG("mutex unlocked from getDataClient");
 }
 
 void SocketsPointerCleaner(Client** dataClient,ServerSocket** dataSocket){
 
     if(*dataClient != nullptr){
-      std::cout<<"dataClient is non null deleting old client"<<std::endl;
+       LOG("dataClient is non null deleting old client");
       (*dataClient)->close();
       *dataClient = nullptr;
     }
     if(*dataSocket != nullptr){
-      std::cout<<"dataSocket is non null deleting old Socket"<<std::endl;
+       LOG("dataSocket is non null deleting old Socket");
       delete *dataSocket;
       *dataSocket = nullptr;
     }
@@ -318,7 +319,7 @@ void SocketsPointerCleaner(Client** dataClient,ServerSocket** dataSocket){
 void loadwsa(){
   WSADATA ws;
   if(WSAStartup(MAKEWORD(2,2),&ws) != 0){
-    std::cout<<"failed to load the dll closing..."<<std::endl;
+       LOG("failed to load the dll closing...");
     exit(1);
   }
 }
@@ -335,9 +336,9 @@ void serviceWorker(Client* client){
 
     client->write(ready);
 
-    Browze path("","/");
+    Browze path("G:","/");
 
-    path.setPrefixPath("/storage/emulated/0");
+    // path.setPrefixPath("/storage/emulated/0");
 
     while(true){
       int readData;
@@ -349,40 +350,40 @@ void serviceWorker(Client* client){
 
       if(readData <= 0){
         SocketsPointerCleaner(&dataClient,&dataSocket);
-        std::cout<<"client's main connection disconnected closing serviceWorker"<<std::endl;
+         LOG("client's main connection disconnected closing serviceWorker");
         break;
       }
 
-      std::cout<<fullCommand<<std::endl;
+      LOG(fullCommand);
 
       if(command  == "USER"){
-        std::cout<<"username is correct asking for password"<<std::endl;
+         LOG("username is correct asking for password");
         client->write(askPassword);
       }else if
 
       (command  == "PASS"){
-        std::cout<<"password is corrrect asking for method"<<std::endl;
+         LOG("password is corrrect asking for method");
         client->write(loggedIn);
       }else if
 
       (command == "TYPE"){
-        std::cout<<"client want's type binary accepting"<<std::endl;
+         LOG("client want's type binary accepting");
         client->write(ok);
       }else if
 
       (command == "SIZE"){
-        std::cout<<"client is asking for size sending details"<<std::endl;
+         LOG("client is asking for size sending details");
         int size = getSize(path.getTrueFullPath(),subCommand);
         client->write((std::string("213 ")+std::to_string(size)+"\r\n").c_str());
       }else if
 
       (command == "FEAT"){
-        std::cout<<"client is asking for features, sending not found"<<std::endl;
+         LOG("client is asking for features, sending not found");
         client->write(syntaxError);
       }else if
 
       (command == "MKD"){
-        std::cout<<"client is asking for creating a directory. Creating.."<<std::endl;
+         LOG("client is asking for creating a directory. Creating..");
         if(mkd(removeExtras(subCommand),path)){
           client->write(("257 \""+removeExtras(subCommand)+"\": created.\r\n").c_str());
         }else{
@@ -391,13 +392,13 @@ void serviceWorker(Client* client){
       }else if
       
       (command == "RNFR"){
-        std::cout<<"client is asking for renaming a file stored into renamebuffer"<<std::endl;
+         LOG("client is asking for renaming a file stored into renamebuffer");
         renameBuffer = removeExtras(subCommand);
         client->write(rnfr);
       }else if
 
       (command == "RNTO"){
-        std::cout<<"client is asking for rnto renaming a file to.."<<std::endl;
+         LOG("client is asking for rnto renaming a file to..");
         if(renameFile(renameBuffer,removeExtras(subCommand),path)){
          client->write(rnto);
         }else{
@@ -407,7 +408,7 @@ void serviceWorker(Client* client){
       }else if
 
       (command == "SYST"){
-        std::cout<<"client is asking for system, sending windows system"<<std::endl;
+         LOG("client is asking for system, sending windows system");
         client->write(systemType);
       }else if
 
@@ -417,29 +418,30 @@ void serviceWorker(Client* client){
         }else{
           path.to(removeExtras(subCommand).c_str());
         }
-        std::cout<<"client is asking for changing directory changing to "<<path.getTrueFullPath()<<std::endl;
+        // std::cout<<"client is asking for changing directory changing to "<<path.getTrueFullPath()<<std::endl;
+        LOG("client is asking for changing directory changing to "<<path.getTrueFullPath());
         client->write((directoryChanged+path.getPath()+"\r\n").c_str());
       }else if
 
       (command == "CDUP"){
-        std::cout<<"path before cdup is "<<path.getTrueFullPath()<<std::endl;
+         LOG("path before cdup is "<<path.getTrueFullPath());
         path.up();
         client->write((directoryChanged+path.getPath()+"\r\n").c_str());
-        std::cout<<"command cdup executed the path is now "<<path.getTruePath()<<std::endl;
+         LOG("command cdup executed the path is now "<<path.getTrueFullPath());
       }else if
 
       (command == "PWD"){
         client->write(("257 \""+path.getPath()+"\"is the current directory\r\n").c_str());
-        std::cout<<"client is asking the current working directory sending "<<path.getTruePath()<<std::endl; 
+         LOG("client is asking the current working directory sending "<<path.getTruePath());
       }else if
 
       (command == "PASV"){
-        std::cout<<"starting passive mode"<<std::endl;
+         LOG("starting passive mode");
         SocketsPointerCleaner(&dataClient,&dataSocket);
         dataSocket = new ServerSocket(port);
         dataSocket->start();
         mutex.lock();
-        std::cout<<"mutex locked from PASV and sent to getDataClient"<<std::endl;
+         LOG("mutex locked from PASV and sent to getDataClient");
         std::thread worker(getDataClient,&dataClient,dataSocket,std::ref(mutex));
         worker.detach();
         int p1 = port/256;
@@ -449,12 +451,12 @@ void serviceWorker(Client* client){
       }else if
 
       (command == "EPSV"){
-        std::cout<<"starting epsv mode"<<std::endl;
+         LOG("starting epsv mode");
         SocketsPointerCleaner(&dataClient,&dataSocket);
         dataSocket = new ServerSocket(port);
         dataSocket->start();
         mutex.lock();
-        std::cout<<"mutex locked from EPSV and sent to getDataClient"<<std::endl;
+         LOG("mutex locked from EPSV and sent to getDataClient");
         std::thread worker(getDataClient,&dataClient,dataSocket,std::ref(mutex));
         worker.detach();
         client->write((std::string(ePassiveMode)+std::to_string(port)+std::string("|)\r\n")).c_str());
@@ -466,16 +468,16 @@ void serviceWorker(Client* client){
            client->write("503 PORT or PASV must be issued first\r\n");
         
         }else{
-          std::cout<<"asked for nlst sending list"<<std::endl;
+           LOG("asked for nlst sending list");
           client->write(fileStatusOkay);
           
           mutex.lock();
           dataClient->write(nlst(path.getTrueFullPath().c_str()).c_str());
-          std::cout<<"list sent succesfully.."<<std::endl;
+           LOG("list sent succesfully..");
           dataClient->close();
           dataClient = nullptr;
           client->write(closingDataConnection);
-          std::cout<<"passive data connection closed"<<std::endl;
+           LOG("passive data connection closed");
           mutex.unlock();
         }
       }else if
@@ -484,7 +486,7 @@ void serviceWorker(Client* client){
         if(dataSocket == nullptr){
            client->write("503 PORT or PASV must be issued first\r\n");
         }else{
-            std::cout<<"asked MLSD sending mlsdList"<<std::endl;
+           LOG("asked MLSD sending mlsdList");
             client->write(fileStatusOkay);
             if(subCommand.length() > 5){
             std::string newFilePath ;//= subCommand.substr(subCommand.find(" ")+1,subCommand.length());
@@ -493,15 +495,15 @@ void serviceWorker(Client* client){
             }else{
             path.setPath("/");
             }
-            std::cout<<"the mlsd path after is "<<path.getTrueFullPath()<<std::endl;
+           LOG("the mlsd path after is "<<path.getTrueFullPath());
             mutex.lock();
             dataClient->write(mlsd(path.getTrueFullPath().c_str()).c_str());
-            std::cout<<"list sent succesfully.."<<std::endl;
+           LOG("list sent succesfully..");
             dataClient->close(); 
             dataClient = nullptr;
 
             client->write(closingDataConnection);
-            std::cout<<"passive data connection closed"<<std::endl;
+           LOG("passive data connection closed");
             mutex.unlock();
         }
       }else if
@@ -511,11 +513,11 @@ void serviceWorker(Client* client){
            client->write("503 PORT or PASV must be issued first\r\n");
         
         }else{
-            std::cout<<"asked LIST sending file list.."<<std::endl;
+           LOG("asked LIST sending file list..");
             client->write(fileStatusOkay);
 
             if(subCommand.length() > 5){
-              std::cout<<"absolute true setting absolute path"<<std::endl;
+             LOG("absolute true setting absolute path");
               std::string newFilePath = subCommand.substr(subCommand.find(" ")+1,subCommand.length());
               newFilePath = removeExtras(newFilePath);
               path.setPath(newFilePath.c_str());
@@ -525,62 +527,62 @@ void serviceWorker(Client* client){
             
 
               mutex.lock();
-              std::cout<<"mutex locked from LIST"<<std::endl;
-              std::cout<<path.getTrueFullPath()<<" is the list path"<<std::endl;
+           LOG("mutex locked from LIST");
+           LOG(path.getTrueFullPath()<<" is the list path");
               dataClient->write(list(path.getTrueFullPath().c_str()).c_str());
-              std::cout<<"list sent succesfully.."<<std::endl;
+           LOG("list sent succesfully..");
               dataClient->close(); 
               dataClient = nullptr;
 
               client->write(closingDataConnection);
-              std::cout<<"passive data connection closed"<<std::endl;
+           LOG("passive data connection closed");
               mutex.unlock();
-              std::cout<<"mutex unlocked from LIST"<<std::endl;
+           LOG("mutex unlocked from LIST");
         }
       }else if
 
       (command == "RETR"){
-        std::cout<<"asking for a file sending file to the client"<<std::endl;
+         LOG("asking for a file sending file to the client");
         std::string retrPath;
         if(isAbsolutePath(subCommand)){
           retrPath = path.getDrive()+path.getPrefixPath()+"/"+removeExtras(subCommand);
         }else{
           retrPath = path.getTrueFullPath()+"/"+removeExtras(subCommand);
         }
-        std::cout<<"the RETR path is "<<retrPath<<std::endl;
+         LOG("the RETR path is "<<retrPath);
 
         if(std::filesystem::exists(retrPath)){
             if(std::filesystem::is_directory(retrPath)){
               client->write(("550 "+retrPath+": Not a plain file\r\n").c_str());
-              std::cout<<"file not sent because it is a directory"<<std::endl;
+             LOG("file not sent because it is a directory");
             }else{
               client->write(fileStatusOkay);
                 
 
                 mutex.lock();
-                std::cout<<"mutex locked from RETR"<<std::endl;
+             LOG("mutex locked from RETR");
                 sendFile(dataClient,retrPath,offset);
-                std::cout<<"file sent succesfully.."<<std::endl;
+             LOG("file sent succesfully..");
                 offset = 0;
                 dataClient->close();  
                 dataClient = nullptr;
 
                 client->write(transferComplete);
-                std::cout<<"passive data connection closed"<<std::endl;
+             LOG("passive data connection closed");
                 mutex.unlock();
-                std::cout<<"mutex unlocked from RETR"<<std::endl;
+             LOG("mutex unlocked from RETR");
             }
 
         }else{
           client->write(("550 "+retrPath+": No such file or directory\r\n").c_str());
-              std::cout<<"file not sent because it doesn't exists"<<std::endl;
+           LOG("file not sent because it doesn't exists");
         }
 
 
       }else if
       
       (command == "STOR"){
-          std::cout<<"client want's to store a file running store"<<std::endl;
+         LOG("client want's to store a file running store");
           std::string storPath;
           std::string checkPath;
           if(isAbsolutePath(subCommand)){
@@ -594,46 +596,46 @@ void serviceWorker(Client* client){
             if(std::filesystem::exists(checkPath)){
                 if(std::filesystem::is_directory(storPath)){
                   client->write(("550 "+storPath+": Not a plain file\r\n").c_str());
-                  std::cout<<"file not recieved because the filename is a directory"<<std::endl;
+             LOG("file not recieved because the filename is a directory");
                 }else{
                   client->write(fileStatusOkay);
 
                   mutex.lock();
                   recieveFile(dataClient,storPath,offset);
-                  std::cout<<"file recieved succesfully.."<<std::endl;
+             LOG("file recieved succesfully..");
                   offset = 0;
                   dataClient->close();  
                   dataClient = nullptr;
 
                   client->write(transferComplete);
-                  std::cout<<"passive data connection closed"<<std::endl;
+             LOG("passive data connection closed");
                   mutex.unlock();
                 }
 
             }else{
               client->write(("550 "+storPath+": No such file or directory\r\n").c_str());
-                  std::cout<<"file not sent because it doesn't exists"<<std::endl;
+           LOG("file not sent because it doesn't exists");
             }
       }else if
 
       (command == "REST"){
         offset = std::atoi(removeExtras(subCommand).c_str());
-        std::cout<<"asking for REST setting offset value "<<std::to_string(offset)<<std::endl;
+         LOG("asking for REST setting offset value "<<std::to_string(offset));
         client->write(("350 Restarting at "+std::to_string(offset)+". Send STORE or RETRIEVE to initiate transfer.\r\n").c_str());
       }else if
 
       (command == "NOOP"){
-        std::cout<<"asking for SITE sending not ok"<<std::endl;
+         LOG("asking for SITE sending not ok");
         client->write(ok);
       }else if
 
       (command == "OPTS"){
-        std::cout<<"asking for options sending not ok"<<std::endl;
+         LOG("asking for options sending not ok");
         client->write(ok);
       }else if
 
       (command == "ABOR"){
-        std::cout<<"asking for abortion aborting.."<<std::endl;
+         LOG("asking for abortion aborting..");
           if(dataClient != nullptr){
              dataClient->close();
              dataClient = nullptr;
@@ -646,17 +648,17 @@ void serviceWorker(Client* client){
       }else if
 
       (command == "QUIT"){
-        std::cout<<"asked to quit the server quitting..."<<std::endl;
+         LOG("asked to quit the server quitting...");
         SocketsPointerCleaner(&dataClient,&dataSocket);
         client->write("goodbye\r\n");
         break;
       }else{
-        std::cout<<"no command "<<command<<" found sending not implemented"<<std::endl;
+        LOG("no command"<<command<<" found sending not implemented");
         client->write(notImplemented);
       }
     }
 
-    std::cout<<"closing serviceWorker.."<<std::endl;
+     LOG("closing serviceWorker..");
     client->close();
 
 }
@@ -672,11 +674,11 @@ int main(){
   socket.start();
 
   while(true){
-    std::cout<<"main thread ready ready waiting for new connections..."<<std::endl;  
+       LOG("main thread ready ready waiting for new connections...");
 
     Client* client = socket.getClient();
 
-    std::cout<<"new client connected starting serviceWorker & sending service ready"<<std::endl;  
+       LOG("new client connected starting serviceWorker & sending service ready");
 
     std::thread worker(serviceWorker,client);
 

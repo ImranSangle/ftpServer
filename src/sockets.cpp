@@ -3,6 +3,7 @@
 #include <sockets.h>
 #include <stringFunctions.h>
 #include <iostream>
+#include <log.h>
 
 #ifdef _WIN64
 #include <winsock2.h>
@@ -16,7 +17,6 @@ bool Client::isConnected(){
   sockaddr_in addr;
   int length = sizeof(addr);
   int result = getpeername(this->id,reinterpret_cast<sockaddr*>(&addr),&length);
-  // std::cout<<"the result is "<<result<<std::endl;
   if(result == SOCKET_ERROR){
     return false;
   }else{
@@ -70,7 +70,7 @@ void Client::close(){
 }
 
 Client::~Client(){
-  std::cout<<"client destroyed"<<std::endl;
+     LOG("client destroyed");
 }
 
 //socket class function definitions ---------------------------
@@ -79,7 +79,7 @@ ServerSocket::ServerSocket(const int& port){
     this->port = port;
     this->server = socket(AF_INET,SOCK_STREAM,IPPROTO_TCP);
     if(server == INVALID_SOCKET){
-      std::cout<<"failed to create server"<<std::endl;
+       LOG("failed to create server");
       std::exit(-1);
     }
     socketCreated = true;
@@ -88,7 +88,7 @@ ServerSocket::ServerSocket(const int& port){
     serverAddress.sin_addr.S_un.S_addr = INADDR_ANY;
 
     if(bind(server,(sockaddr*)&serverAddress,sizeof(serverAddress)) == SOCKET_ERROR){
-      std::cout<<"failed to bind to the address to the socket"<<std::endl;
+       LOG("failed to bind to the address to the socket");
       closesocket(this->server);
       std::exit(-1);
     }
@@ -99,9 +99,9 @@ ServerSocket::ServerSocket(const int& port){
     if(socketCreated && socketBound){
     listen(server,10);
     socketListening = true;
-    std::cout<<"Server is listening on port "<<port<<std::endl;
+       LOG("Server is listening on port "<<port);
     }else{
-    std::cout<<"socket is not created or bounded error starting the server"<<std::endl;
+       LOG("socket is not created or bounded error starting the server");
     closesocket(this->server);
     std::exit(-1);
     }
@@ -114,11 +114,11 @@ ServerSocket::ServerSocket(const int& port){
         Client* client  = new Client(clientSocket); 
         return client;
       }else{
-        std::cout<<"from sockets.cpp = client socket is INVALID_SOCKET returning nullptr"<<std::endl;
+         LOG("from sockets.cpp = client socket is INVALID_SOCKET returning nullptr");
         return nullptr;
       }
     }else{
-    std::cout<<"error: cant get client socket is not in listening state"<<std::endl;
+       LOG("error: cant get client socket is not in listening state");
     closesocket(this->server);
     std::exit(-1);
     //return nullptr;
@@ -137,7 +137,7 @@ ServerSocket::ServerSocket(const int& port){
 
   int selectResult = select(0,&fd,nullptr,nullptr,&timeout);
   if(selectResult == SOCKET_ERROR){
-     std::cout<<"wait failed closing.."<<std::endl;
+       LOG("wait failed closing..");
      ::closesocket(this->server);
      std::exit(1);
   }else if(selectResult == 0){
@@ -150,7 +150,7 @@ ServerSocket::ServerSocket(const int& port){
 
   ServerSocket::~ServerSocket(){
     ::closesocket(this->server);
-    std::cout<<"server with port "<<this->port<<" destroyed"<<std::endl;
+     LOG("server with port "<<this->port<<" destroyed");
   }
 
 #endif 
@@ -167,7 +167,6 @@ bool Client::isConnected(){
   sockaddr_in addr;
   int length = sizeof(addr);
   int result = getpeername(this->id,reinterpret_cast<sockaddr*>(&addr),&length);
-  // std::cout<<"the result is "<<result<<std::endl;
   if(result < 0){
     return false;
   }else{
@@ -222,7 +221,7 @@ void Client::close(){
 }
 
 Client::~Client(){
-  std::cout<<"client destroyed"<<std::endl;
+     LOG("client destroyed");
 }
 
 //socket class function definitions ---------------------------
@@ -231,7 +230,7 @@ ServerSocket::ServerSocket(const int& port){
     this->port = port;
     this->server = socket(AF_INET,SOCK_STREAM,IPPROTO_TCP);
     if(server < 0){
-      std::cout<<"failed to create server"<<std::endl;
+       LOG("failed to create server");
       std::exit(-1);
     }
     socketCreated = true;
@@ -240,7 +239,7 @@ ServerSocket::ServerSocket(const int& port){
     serverAddress.sin_addr.s_addr = INADDR_ANY;
 
     if(bind(server,(sockaddr*)&serverAddress,sizeof(serverAddress)) < 0){
-      std::cout<<"failed to bind to the address to the socket"<<std::endl;
+       LOG("failed to bind to the address to the socket");
       close(this->server);
       std::exit(-1);
     }
@@ -251,9 +250,9 @@ ServerSocket::ServerSocket(const int& port){
     if(socketCreated && socketBound){
     listen(server,10);
     socketListening = true;
-    std::cout<<"Server is listening on port "<<port<<std::endl;
+       LOG("Server is listening on port "<<port);
     }else{
-    std::cout<<"socket is not created or bounded error starting the server"<<std::endl;
+       LOG("socket is not created or bounded error starting the server");
     close(this->server);
     std::exit(-1);
     }
@@ -266,11 +265,11 @@ ServerSocket::ServerSocket(const int& port){
         Client* client  = new Client(clientSocket); 
         return client;
       }else{
-        std::cout<<"from sockets.cpp = client socket is INVALID_SOCKET returning nullptr"<<std::endl;
+         LOG("from sockets.cpp = client socket is INVALID_SOCKET returning nullptr");
         return nullptr;
       }
     }else{
-    std::cout<<"error: cant get client socket is not in listening state"<<std::endl;
+       LOG("error: cant get client socket is not in listening state");
     close(this->server);
     std::exit(-1);
     //return nullptr;
@@ -289,7 +288,7 @@ ServerSocket::ServerSocket(const int& port){
 
   int selectResult = select(this->server+1,&fd,nullptr,nullptr,&timeout);
   if(selectResult < 0){
-     std::cout<<"wait failed closing.."<<std::endl;
+       LOG("wait failed closing..");
      ::close(this->server);
      std::exit(1);
   }else if(selectResult == 0){
@@ -302,6 +301,6 @@ ServerSocket::ServerSocket(const int& port){
 
   ServerSocket::~ServerSocket(){
     ::close(this->server);
-    std::cout<<"server with port "<<this->port<<" destroyed"<<std::endl;
+     LOG("server with port "<<this->port<<" destroyed");
   }
 #endif
