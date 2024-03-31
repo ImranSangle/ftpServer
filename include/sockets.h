@@ -52,6 +52,9 @@ class ServerSocket{
   ~ServerSocket();
 
 };
+
+std::string getIpAddress();
+
 #endif 
 
 #ifdef __linux__
@@ -106,4 +109,7 @@ class ServerSocket{
   ~ServerSocket();
 
 };
+
+std::string getIpAddress();
+
 #endif

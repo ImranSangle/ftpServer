@@ -20,8 +20,9 @@ static const char* askPassword = "331 username okay, password for username\r\n";
 static const char* loggedIn  = "230 logged in, proceed\r\n";
 static const char* ok  = "200 command type okay\r\n";
 static const char* syntaxError  = "500 syntax error\r\n";
-static const char* systemType  = "215 windows_NT\r\n";
-static const char* passiveMode  = "227 entering passive mode (192,168,31,2,";
+static const char* systemTypeWindows  = "215 windows_NT\r\n";
+static const char* systemTypeLinux  = "215 UNIX Type: Apache FtpServer\r\n";
+static const char* passiveMode  = "227 entering passive mode ";
 static const char* directoryChanged  = "250 directory changed to ";
 static const char* ePassiveMode = "229 Entering Passive Mode (|||";
 static const char* fileStatusOkay = "150 File status okay; about to open data connection\r\n";
@@ -46,6 +47,7 @@ std::string formatPath(std::string m_path){
       }
       return r_path;
 }
+
 
 std::string nlst(const char* path){
   std::string names;
@@ -210,6 +212,18 @@ bool isAbsolutePath(const std::string& m_path){
   return true;
 }
 
+bool checkPath(const std::string& m_path,const Browze& path){
+
+  std::string c_path = formatPath(m_path);
+
+  if(isAbsolutePath(c_path)){
+    return std::filesystem::exists(removeExtras(c_path));
+  }
+
+  return std::filesystem::exists(path.getTrueFullPath()+"/"+c_path);
+
+}
+
 bool mkd(const std::string& name,const Browze path){
      if(isAbsolutePath(name)){
         std::string c_name = formatPath(name);
@@ -331,6 +345,7 @@ void serviceWorker(Client* client){
     ServerSocket* dataSocket = nullptr;
     Client* dataClient = nullptr;
     size_t offset = 0;
+    std::string ipAddress = getIpAddress();
     std::string renameBuffer;
     std::mutex mutex;
 
@@ -374,7 +389,11 @@ void serviceWorker(Client* client){
       (command == "SIZE"){
          LOG("client is asking for size sending details");
         int size = getSize(path.getTrueFullPath(),subCommand);
-        client->write((std::string("213 ")+std::to_string(size)+"\r\n").c_str());
+        if(size == -1){
+          client->write(("550 "+removeExtras(subCommand)+": No such file or directory\r\n").c_str());
+        }else{
+          client->write((std::string("213 ")+std::to_string(size)+"\r\n").c_str());
+        }
       }else if
 
       (command == "FEAT"){
@@ -408,19 +427,29 @@ void serviceWorker(Client* client){
       }else if
 
       (command == "SYST"){
-         LOG("client is asking for system, sending windows system");
-        client->write(systemType);
+        #ifdef WIN64
+        LOG("client is asking for system, sending windows system");
+        client->write(systemTypeWindows);
+        #endif
+        #ifdef __linux__
+        LOG("client is asking for system, sending linux system");
+        client->write(systemTypeLinux);
+        #endif
       }else if
 
       (command == "CWD"){
-        if(isAbsolutePath(subCommand)){
-          path.setPath(removeExtras(subCommand).c_str());
+        if(checkPath(subCommand,path)){
+          if(isAbsolutePath(subCommand)){
+            path.setPath(removeExtras(subCommand).c_str());
+          }else{
+            path.to(removeExtras(subCommand).c_str());
+          }
+          LOG("from CWD : client is asking for changing directory changing to "<<path.getTrueFullPath());
+          client->write((directoryChanged+path.getPath()+"\r\n").c_str());
         }else{
-          path.to(removeExtras(subCommand).c_str());
+          LOG("from CWD : No such directory found "<<removeExtras(subCommand));
+          client->write("550 No such directory\r\n");
         }
-        // std::cout<<"client is asking for changing directory changing to "<<path.getTrueFullPath()<<std::endl;
-        LOG("client is asking for changing directory changing to "<<path.getTrueFullPath());
-        client->write((directoryChanged+path.getPath()+"\r\n").c_str());
       }else if
 
       (command == "CDUP"){
@@ -446,7 +475,7 @@ void serviceWorker(Client* client){
         worker.detach();
         int p1 = port/256;
         int p2 = port%256;
-        client->write((std::string(passiveMode)+std::to_string(p1)+","+std::to_string(p2)+")\r\n").c_str());
+        client->write((std::string(passiveMode)+"("+ipAddress+","+std::to_string(p1)+","+std::to_string(p2)+")\r\n").c_str());
         port++;
       }else if
 
@@ -636,14 +665,7 @@ void serviceWorker(Client* client){
 
       (command == "ABOR"){
          LOG("asking for abortion aborting..");
-          if(dataClient != nullptr){
-             dataClient->close();
-             dataClient = nullptr;
-          }
-          if(dataSocket != nullptr){
-             delete dataSocket;
-             dataSocket = nullptr;
-          }
+        SocketsPointerCleaner(&dataClient,&dataSocket);
         client->write(abortSuccesfull);
       }else if
 
@@ -674,11 +696,11 @@ int main(){
   socket.start();
 
   while(true){
-       LOG("main thread ready ready waiting for new connections...");
+    LOG("main thread ready ready waiting for new connections...");
 
     Client* client = socket.getClient();
 
-       LOG("new client connected starting serviceWorker & sending service ready");
+    LOG("new client connected starting serviceWorker & sending service ready");
 
     std::thread worker(serviceWorker,client);
 

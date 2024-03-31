@@ -7,6 +7,7 @@
 
 #ifdef _WIN64
 #include <winsock2.h>
+#include <ws2tcpip.h>
 
 //client class function definitions ---------------------------
 Client::Client(SOCKET socket){
@@ -148,10 +149,42 @@ ServerSocket::ServerSocket(const int& port){
 
 }  
 
-  ServerSocket::~ServerSocket(){
-    ::closesocket(this->server);
-     LOG("server with port "<<this->port<<" destroyed");
+ServerSocket::~ServerSocket(){
+  ::closesocket(this->server);
+   LOG("server with port "<<this->port<<" destroyed");
+}
+
+std::string getIpAddress(){
+  
+  char hostname[256];
+  if(gethostname(hostname,sizeof(hostname)) == SOCKET_ERROR){
+      LOG("from getIpAddress() : getting hostname failed.");
+      return NULL;
   }
+
+  struct sockaddr_in sockaddr_ipv4;
+  struct hostent* pHost;
+   
+  pHost = gethostbyname(hostname);
+  if(pHost == NULL){
+    LOG("from getIpAddress() : gethostbyname failed.");
+    return NULL;
+  }
+
+  sockaddr_ipv4.sin_family = AF_INET;
+  sockaddr_ipv4.sin_addr.S_un.S_addr = *((unsigned long*)pHost->h_addr);
+
+  char ipAddr[INET_ADDRSTRLEN];
+  inet_ntop(AF_INET, &sockaddr_ipv4.sin_addr,ipAddr, INET_ADDRSTRLEN);
+
+  for(int i=0;i<sizeof(ipAddr);i++){
+     if(ipAddr[i] == '.'){
+       ipAddr[i] = ',';
+    }
+  }
+
+  return ipAddr;
+}
 
 #endif 
 
@@ -299,8 +332,42 @@ ServerSocket::ServerSocket(const int& port){
 
 }  
 
-  ServerSocket::~ServerSocket(){
-    ::close(this->server);
-     LOG("server with port "<<this->port<<" destroyed");
+ServerSocket::~ServerSocket(){
+  ::close(this->server);
+   LOG("server with port "<<this->port<<" destroyed");
+}
+
+std::string getIpAddress(){
+
+  char hostname[256];
+  if(gethostname(hostname,sizeof(hostname)) == -1){
+      LOG("from getIpAddress() : getting hostname failed.");
+      return NULL;
   }
+
+  struct addrinfo hints,*res;
+  memset(&hints,0,sizeof(hints));
+  hints.ai_family = AF_INET;
+  hints.ai_socktype = SOCK_STREAM;
+
+  if(getaddrinfo(hostname,nullptr,&hints,&res) != 0){
+     LOG("form getIpAddress() : error getting address info");
+     return NULL;
+  }
+
+  struct sockaddr_in* addr = (struct sockaddr_in*)res->ai_addr;
+  char ipAddr[INET_ADDRSTRLEN];
+  inet_ntop(AF_INET,&(addr->sin_addr),ipAddr,INET_ADDRSTRLEN);
+
+  for(int i=0;i<sizeof(ipAddr);i++){
+     if(ipAddr[i] == '.'){
+       ipAddr[i] = ',';
+    }
+  }
+
+  freeaddrinfo(res);
+
+  return ipAddr;
+}
+
 #endif
