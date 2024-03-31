@@ -92,14 +92,18 @@ std::string mlsd(const char* path){
 
 std::string list(const char* path) {
     std::string names;
+    if(!std::filesystem::is_directory(path)){
+       names+= "-rw------- 1 owner owner "+std::to_string(std::filesystem::file_size(path))+" Feb 25 00:54 "+path;
+       return names;
+    }
     for (const auto& entry : std::filesystem::directory_iterator(path)) {
         try {
 
             if (entry.is_directory()) {
-                names += "drwxrwxrwx 2 sharique sharique 4096 Feb 25 00:54 " + entry.path().filename().string();
+                names += "drwxrwxrwx 2 owner owner 4096 Feb 25 00:54 " + entry.path().filename().string();
             }
             else {
-                names += "-rwxrwxrwx 1 sharique sharique " + std::to_string(entry.file_size()) + " Feb 25 00:54 " + entry.path().filename().string();
+                names += "-rwxrwxrwx 1 owner owner " + std::to_string(entry.file_size()) + " Feb 25 00:54 " + entry.path().filename().string();
             }
             names += "\r\n";
         }
@@ -216,11 +220,30 @@ bool checkPath(const std::string& m_path,const Browze& path){
 
   std::string c_path = formatPath(m_path);
 
-  if(isAbsolutePath(c_path)){
-    return std::filesystem::exists(removeExtras(c_path));
+  if(isAbsolutePath(m_path)){
+    return std::filesystem::exists(path.getDrive()+path.getPrefixPath()+c_path);
   }
 
-  return std::filesystem::exists(path.getTrueFullPath()+"/"+c_path);
+  return std::filesystem::exists(path.getTrueFullPath()+c_path);
+
+}
+
+std::string mlst(const std::string& m_path,const Browze& path){
+
+   std::string f_path = formatPath(m_path);
+   std::string finalPath;
+
+   if(isAbsolutePath(m_path)){
+     finalPath = path.getDrive()+path.getPrefixPath()+f_path;
+   }else{
+     finalPath = path.getTrueFullPath()+f_path;
+   }
+
+   if(std::filesystem::is_directory(finalPath)){
+     return "Size=0"+(";Modify=20240305134627;Type=dir;"+f_path)+"\r\n";
+   }else{
+     return "Size="+std::to_string(std::filesystem::file_size(finalPath))+";Modify=20240305134627;Type=file;"+f_path+"\r\n";
+   }
 
 }
 
@@ -351,9 +374,9 @@ void serviceWorker(Client* client){
 
     client->write(ready);
 
-    Browze path("G:","/");
+    Browze path("F:","/");
 
-    // path.setPrefixPath("/storage/emulated/0");
+    // path.setPrefixPath("/Videos");
 
     while(true){
       int readData;
@@ -438,7 +461,7 @@ void serviceWorker(Client* client){
       }else if
 
       (command == "CWD"){
-        if(checkPath(subCommand,path)){
+        if(checkPath(removeExtras(subCommand),path)){
           if(isAbsolutePath(subCommand)){
             path.setPath(removeExtras(subCommand).c_str());
           }else{
@@ -511,6 +534,17 @@ void serviceWorker(Client* client){
         }
       }else if
 
+      (command == "MLST"){
+        if(checkPath(removeExtras(subCommand),path)){
+          LOG("from MLST : Sending mlst of the requested file "+removeExtras(subCommand));
+          client->write(("250-"+mlst(removeExtras(subCommand),path)).c_str());
+          client->write("250 Requested file action okay, completed\r\n");
+        }else{
+         LOG("from MLST : Not a valid pathname");
+         client->write("501 Not a valid pathname\r\n");
+        }
+      }else if
+
       (command == "MLSD"){
         if(dataSocket == nullptr){
            client->write("503 PORT or PASV must be issued first\r\n");
@@ -542,11 +576,11 @@ void serviceWorker(Client* client){
            client->write("503 PORT or PASV must be issued first\r\n");
         
         }else{
-           LOG("asked LIST sending file list..");
+            LOG("asked LIST sending file list..");
             client->write(fileStatusOkay);
 
             if(subCommand.length() > 5){
-             LOG("absolute true setting absolute path");
+              LOG("absolute true setting absolute path");
               std::string newFilePath = subCommand.substr(subCommand.find(" ")+1,subCommand.length());
               newFilePath = removeExtras(newFilePath);
               path.setPath(newFilePath.c_str());
@@ -556,17 +590,17 @@ void serviceWorker(Client* client){
             
 
               mutex.lock();
-           LOG("mutex locked from LIST");
-           LOG(path.getTrueFullPath()<<" is the list path");
+              LOG("mutex locked from LIST");
+              LOG(path.getTrueFullPath()<<" is the list path");
               dataClient->write(list(path.getTrueFullPath().c_str()).c_str());
-           LOG("list sent succesfully..");
+              LOG("list sent succesfully..");
               dataClient->close(); 
               dataClient = nullptr;
 
               client->write(closingDataConnection);
-           LOG("passive data connection closed");
+              LOG("passive data connection closed");
               mutex.unlock();
-           LOG("mutex unlocked from LIST");
+              LOG("mutex unlocked from LIST");
         }
       }else if
 
@@ -588,18 +622,18 @@ void serviceWorker(Client* client){
               client->write(fileStatusOkay);
                 
 
-                mutex.lock();
-             LOG("mutex locked from RETR");
-                sendFile(dataClient,retrPath,offset);
-             LOG("file sent succesfully..");
-                offset = 0;
-                dataClient->close();  
-                dataClient = nullptr;
+              mutex.lock();
+              LOG("mutex locked from RETR");
+              sendFile(dataClient,retrPath,offset);
+              LOG("file sent succesfully..");
+              offset = 0;
+              dataClient->close();  
+              dataClient = nullptr;
 
-                client->write(transferComplete);
-             LOG("passive data connection closed");
-                mutex.unlock();
-             LOG("mutex unlocked from RETR");
+              client->write(transferComplete);
+              LOG("passive data connection closed");
+              mutex.unlock();
+              LOG("mutex unlocked from RETR");
             }
 
         }else{
