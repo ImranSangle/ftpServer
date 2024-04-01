@@ -48,6 +48,29 @@ std::string formatPath(std::string m_path){
       return r_path;
 }
 
+std::string formatListSubcommand(const std::string& m_subcommand){
+
+  std::string result;
+
+  size_t aPos = m_subcommand.find("-a");
+  size_t lPos = m_subcommand.find("-l");
+
+  if(aPos != std::string::npos){
+    if(m_subcommand[aPos+2] == ' '){
+      return m_subcommand.substr(aPos+3,m_subcommand.length()); 
+    }else{
+      return m_subcommand;
+    }
+  }else if(lPos != std::string::npos){
+    if(m_subcommand[lPos+2] == ' '){
+      return m_subcommand.substr(lPos+3,m_subcommand.length()); 
+    }else{
+      return m_subcommand;
+    }
+  }else{
+    return m_subcommand;
+  }
+}
 
 std::string nlst(const char* path){
   std::string names;
@@ -301,7 +324,7 @@ bool renameFile(const std::string& m_oldname,const std::string& m_newname,const 
 
 int getSize(const std::string& path, const std::string& filename) {
     try {
-        return std::filesystem::file_size(path + "/" + removeExtras(filename));
+        return std::filesystem::file_size(path+"/" +filename);
     }
     catch (const std::filesystem::filesystem_error& ex) {
         // Handle the file system error
@@ -382,7 +405,7 @@ void serviceWorker(Client* client){
       int readData;
       std::string fullCommand = client->read(readData);
       std::string command = getCode(fullCommand.c_str());
-      std::string subCommand = getCommand(fullCommand.c_str());
+      std::string subCommand = removeExtras(getCommand(fullCommand.c_str()));
 
       std::transform(command.begin(), command.end(),command.begin(), [](unsigned char c){ return std::toupper(c);});
 
@@ -413,7 +436,7 @@ void serviceWorker(Client* client){
          LOG("client is asking for size sending details");
         int size = getSize(path.getTrueFullPath(),subCommand);
         if(size == -1){
-          client->write(("550 "+removeExtras(subCommand)+": No such file or directory\r\n").c_str());
+          client->write(("550 "+subCommand+": No such file or directory\r\n").c_str());
         }else{
           client->write((std::string("213 ")+std::to_string(size)+"\r\n").c_str());
         }
@@ -426,22 +449,22 @@ void serviceWorker(Client* client){
 
       (command == "MKD"){
          LOG("client is asking for creating a directory. Creating..");
-        if(mkd(removeExtras(subCommand),path)){
-          client->write(("257 \""+removeExtras(subCommand)+"\": created.\r\n").c_str());
+        if(mkd(subCommand,path)){
+          client->write(("257 \""+subCommand+"\": created.\r\n").c_str());
         }else{
-          client->write(("550 "+removeExtras(subCommand)+" already exists.\r\n").c_str());
+          client->write(("550 "+subCommand+" already exists.\r\n").c_str());
         }
       }else if
       
       (command == "RNFR"){
          LOG("client is asking for renaming a file stored into renamebuffer");
-        renameBuffer = removeExtras(subCommand);
+        renameBuffer = subCommand;
         client->write(rnfr);
       }else if
 
       (command == "RNTO"){
          LOG("client is asking for rnto renaming a file to..");
-        if(renameFile(renameBuffer,removeExtras(subCommand),path)){
+        if(renameFile(renameBuffer,subCommand,path)){
          client->write(rnto);
         }else{
          client->write(rn_error);
@@ -461,16 +484,16 @@ void serviceWorker(Client* client){
       }else if
 
       (command == "CWD"){
-        if(checkPath(removeExtras(subCommand),path)){
+        if(checkPath(subCommand,path)){
           if(isAbsolutePath(subCommand)){
-            path.setPath(removeExtras(subCommand).c_str());
+            path.setPath(subCommand.c_str());
           }else{
-            path.to(removeExtras(subCommand).c_str());
+            path.to(subCommand.c_str());
           }
           LOG("from CWD : client is asking for changing directory changing to "<<path.getTrueFullPath());
           client->write((directoryChanged+path.getPath()+"\r\n").c_str());
         }else{
-          LOG("from CWD : No such directory found "<<removeExtras(subCommand));
+          LOG("from CWD : No such directory found "<<subCommand);
           client->write("550 No such directory\r\n");
         }
       }else if
@@ -518,7 +541,6 @@ void serviceWorker(Client* client){
       (command == "NLST"){
         if(dataSocket == nullptr){
            client->write("503 PORT or PASV must be issued first\r\n");
-        
         }else{
            LOG("asked for nlst sending list");
           client->write(fileStatusOkay);
@@ -535,9 +557,9 @@ void serviceWorker(Client* client){
       }else if
 
       (command == "MLST"){
-        if(checkPath(removeExtras(subCommand),path)){
-          LOG("from MLST : Sending mlst of the requested file "+removeExtras(subCommand));
-          client->write(("250-"+mlst(removeExtras(subCommand),path)).c_str());
+        if(checkPath(subCommand,path)){
+          LOG("from MLST : Sending mlst of the requested file "+subCommand);
+          client->write(("250-"+mlst(subCommand,path)).c_str());
           client->write("250 Requested file action okay, completed\r\n");
         }else{
          LOG("from MLST : Not a valid pathname");
@@ -553,7 +575,7 @@ void serviceWorker(Client* client){
             client->write(fileStatusOkay);
             if(subCommand.length() > 5){
             std::string newFilePath ;//= subCommand.substr(subCommand.find(" ")+1,subCommand.length());
-            newFilePath = removeExtras(subCommand);
+            newFilePath = subCommand;
             path.setPath(newFilePath.c_str());
             }else{
             path.setPath("/");
@@ -571,6 +593,39 @@ void serviceWorker(Client* client){
         }
       }else if
 
+      // (command == "LIST"){
+      //   if(dataSocket == nullptr){
+      //      client->write("503 PORT or PASV must be issued first\r\n");
+      //   
+      //   }else{
+      //       LOG("asked LIST sending file list..");
+      //       client->write(fileStatusOkay);
+      //
+      //       if(subCommand.length() > 5){
+      //         LOG("absolute true setting absolute path");
+      //         std::string newFilePath = subCommand.substr(subCommand.find(" ")+1,subCommand.length());
+      //         newFilePath = newFilePath;
+      //         path.setPath(newFilePath.c_str());
+      //       }else if(subCommand.find("-a") != std::string::npos){
+      //         path.setPath("/");
+      //       }
+      //       
+      //
+      //         mutex.lock();
+      //         LOG("mutex locked from LIST");
+      //         LOG(path.getTrueFullPath()<<" is the list path");
+      //         dataClient->write(list(path.getTrueFullPath().c_str()).c_str());
+      //         LOG("list sent succesfully..");
+      //         dataClient->close(); 
+      //         dataClient = nullptr;
+      //
+      //         client->write(closingDataConnection);
+      //         LOG("passive data connection closed");
+      //         mutex.unlock();
+      //         LOG("mutex unlocked from LIST");
+      //   }
+      // }else if
+
       (command == "LIST"){
         if(dataSocket == nullptr){
            client->write("503 PORT or PASV must be issued first\r\n");
@@ -578,21 +633,21 @@ void serviceWorker(Client* client){
         }else{
             LOG("asked LIST sending file list..");
             client->write(fileStatusOkay);
+            
+            std::string formatedListPath = formatListSubcommand(subCommand);
+            std::string finalListPath;
 
-            if(subCommand.length() > 5){
-              LOG("absolute true setting absolute path");
-              std::string newFilePath = subCommand.substr(subCommand.find(" ")+1,subCommand.length());
-              newFilePath = removeExtras(newFilePath);
-              path.setPath(newFilePath.c_str());
-            }else if(subCommand.find("-a") != std::string::npos){
-              path.setPath("/");
+            if(formatedListPath.length() > 0){
+               finalListPath = path.getDrive()+path.getPrefixPath()+formatPath(formatedListPath);
+            }else{
+               finalListPath = path.getTrueFullPath();
             }
             
-
+            if(std::filesystem::exists(finalListPath)){
               mutex.lock();
               LOG("mutex locked from LIST");
-              LOG(path.getTrueFullPath()<<" is the list path");
-              dataClient->write(list(path.getTrueFullPath().c_str()).c_str());
+              LOG(finalListPath<<" is the list path");
+              dataClient->write(list(finalListPath.c_str()).c_str());
               LOG("list sent succesfully..");
               dataClient->close(); 
               dataClient = nullptr;
@@ -601,6 +656,11 @@ void serviceWorker(Client* client){
               LOG("passive data connection closed");
               mutex.unlock();
               LOG("mutex unlocked from LIST");
+            }else{
+              LOG("from LIST : sending 450 Non existing file to the client");
+              client->write("450 Non existing file\r\n");
+            }
+
         }
       }else if
 
@@ -608,9 +668,9 @@ void serviceWorker(Client* client){
          LOG("asking for a file sending file to the client");
         std::string retrPath;
         if(isAbsolutePath(subCommand)){
-          retrPath = path.getDrive()+path.getPrefixPath()+"/"+removeExtras(subCommand);
+          retrPath = path.getDrive()+path.getPrefixPath()+"/"+subCommand;
         }else{
-          retrPath = path.getTrueFullPath()+"/"+removeExtras(subCommand);
+          retrPath = path.getTrueFullPath()+"/"+subCommand;
         }
          LOG("the RETR path is "<<retrPath);
 
@@ -649,10 +709,10 @@ void serviceWorker(Client* client){
           std::string storPath;
           std::string checkPath;
           if(isAbsolutePath(subCommand)){
-            storPath = path.getDrive()+path.getPrefixPath()+"/"+removeExtras(subCommand);
+            storPath = path.getDrive()+path.getPrefixPath()+"/"+subCommand;
             checkPath = storPath.substr(0,storPath.rfind("/"));
           }else{
-            storPath = path.getTrueFullPath()+"/"+removeExtras(subCommand);
+            storPath = path.getTrueFullPath()+"/"+subCommand;
             checkPath = path.getTrueFullPath();
           }
 
@@ -682,7 +742,7 @@ void serviceWorker(Client* client){
       }else if
 
       (command == "REST"){
-        offset = std::atoi(removeExtras(subCommand).c_str());
+        offset = std::atoi(subCommand.c_str());
          LOG("asking for REST setting offset value "<<std::to_string(offset));
         client->write(("350 Restarting at "+std::to_string(offset)+". Send STORE or RETRIEVE to initiate transfer.\r\n").c_str());
       }else if
