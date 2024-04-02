@@ -143,7 +143,6 @@ std::string list(const char* path) {
             continue;
         }
     }
-
     return names;
 }
 
@@ -397,9 +396,14 @@ void serviceWorker(Client* client){
 
     client->write(ready);
 
+    #ifdef WIN64
     Browze path("F:","/");
+    #endif
 
-    // path.setPrefixPath("/Videos");
+    #ifdef __linux__
+      Browze path("","/");
+      path.setPrefixPath("/storage/emulated/0");
+    #endif
 
     while(true){
       int readData;
@@ -571,69 +575,8 @@ void serviceWorker(Client* client){
         if(dataSocket == nullptr){
            client->write("503 PORT or PASV must be issued first\r\n");
         }else{
-           LOG("asked MLSD sending mlsdList");
-            client->write(fileStatusOkay);
-            if(subCommand.length() > 5){
-            std::string newFilePath ;//= subCommand.substr(subCommand.find(" ")+1,subCommand.length());
-            newFilePath = subCommand;
-            path.setPath(newFilePath.c_str());
-            }else{
-            path.setPath("/");
-            }
-           LOG("the mlsd path after is "<<path.getTrueFullPath());
-            mutex.lock();
-            dataClient->write(mlsd(path.getTrueFullPath().c_str()).c_str());
-           LOG("list sent succesfully..");
-            dataClient->close(); 
-            dataClient = nullptr;
+            LOG("asked MLSD sending mlsdList");
 
-            client->write(closingDataConnection);
-           LOG("passive data connection closed");
-            mutex.unlock();
-        }
-      }else if
-
-      // (command == "LIST"){
-      //   if(dataSocket == nullptr){
-      //      client->write("503 PORT or PASV must be issued first\r\n");
-      //   
-      //   }else{
-      //       LOG("asked LIST sending file list..");
-      //       client->write(fileStatusOkay);
-      //
-      //       if(subCommand.length() > 5){
-      //         LOG("absolute true setting absolute path");
-      //         std::string newFilePath = subCommand.substr(subCommand.find(" ")+1,subCommand.length());
-      //         newFilePath = newFilePath;
-      //         path.setPath(newFilePath.c_str());
-      //       }else if(subCommand.find("-a") != std::string::npos){
-      //         path.setPath("/");
-      //       }
-      //       
-      //
-      //         mutex.lock();
-      //         LOG("mutex locked from LIST");
-      //         LOG(path.getTrueFullPath()<<" is the list path");
-      //         dataClient->write(list(path.getTrueFullPath().c_str()).c_str());
-      //         LOG("list sent succesfully..");
-      //         dataClient->close(); 
-      //         dataClient = nullptr;
-      //
-      //         client->write(closingDataConnection);
-      //         LOG("passive data connection closed");
-      //         mutex.unlock();
-      //         LOG("mutex unlocked from LIST");
-      //   }
-      // }else if
-
-      (command == "LIST"){
-        if(dataSocket == nullptr){
-           client->write("503 PORT or PASV must be issued first\r\n");
-        
-        }else{
-            LOG("asked LIST sending file list..");
-            client->write(fileStatusOkay);
-            
             std::string formatedListPath = formatListSubcommand(subCommand);
             std::string finalListPath;
 
@@ -644,6 +587,43 @@ void serviceWorker(Client* client){
             }
             
             if(std::filesystem::exists(finalListPath)){
+              client->write(fileStatusOkay);
+              LOG("the mlsd path after is "<<finalListPath);
+              mutex.lock();
+              dataClient->write(mlsd(finalListPath.c_str()).c_str());
+              LOG("list sent succesfully..");
+              dataClient->close(); 
+              dataClient = nullptr;
+
+              client->write(closingDataConnection);
+              LOG("passive data connection closed");
+              mutex.unlock();
+
+            }else{
+              LOG("from MLSD : sending 450 Non existing file to the client");
+              client->write("450 Non existing file\r\n");
+            }
+        }
+      }else if
+
+      (command == "LIST"){
+        if(dataSocket == nullptr){
+           client->write("503 PORT or PASV must be issued first\r\n");
+        
+        }else{
+            LOG("asked LIST sending file list..");
+
+            std::string formatedListPath = formatListSubcommand(subCommand);
+            std::string finalListPath;
+
+            if(formatedListPath.length() > 0){
+               finalListPath = path.getDrive()+path.getPrefixPath()+formatPath(formatedListPath);
+            }else{
+               finalListPath = path.getTrueFullPath();
+            }
+            
+            if(std::filesystem::exists(finalListPath)){
+              client->write(fileStatusOkay);
               mutex.lock();
               LOG("mutex locked from LIST");
               LOG(finalListPath<<" is the list path");
@@ -719,19 +699,19 @@ void serviceWorker(Client* client){
             if(std::filesystem::exists(checkPath)){
                 if(std::filesystem::is_directory(storPath)){
                   client->write(("550 "+storPath+": Not a plain file\r\n").c_str());
-             LOG("file not recieved because the filename is a directory");
+                  LOG("file not recieved because the filename is a directory");
                 }else{
                   client->write(fileStatusOkay);
 
                   mutex.lock();
                   recieveFile(dataClient,storPath,offset);
-             LOG("file recieved succesfully..");
+                  LOG("file recieved succesfully..");
                   offset = 0;
                   dataClient->close();  
                   dataClient = nullptr;
 
                   client->write(transferComplete);
-             LOG("passive data connection closed");
+                  LOG("passive data connection closed");
                   mutex.unlock();
                 }
 
@@ -748,7 +728,7 @@ void serviceWorker(Client* client){
       }else if
 
       (command == "NOOP"){
-         LOG("asking for SITE sending not ok");
+         LOG("asking for NOOP sending ok");
         client->write(ok);
       }else if
 

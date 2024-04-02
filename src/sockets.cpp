@@ -339,35 +339,39 @@ ServerSocket::~ServerSocket(){
 
 std::string getIpAddress(){
 
-  char hostname[256];
-  if(gethostname(hostname,sizeof(hostname)) == -1){
-      LOG("from getIpAddress() : getting hostname failed.");
-      return NULL;
+  struct ifaddrs* ifAddrStruct = NULL;
+  struct ifaddrs* ifa = NULL;
+  void *tmpAddrPtr = NULL;
+  std::string ipAddress;
+  
+  getifaddrs(&ifAddrStruct);
+
+  for(ifa = ifAddrStruct;ifa != NULL ; ifa = ifa->ifa_next){
+       if(ifa->ifa_addr->sa_family == AF_INET && (ifa->ifa_flags & IFF_UP)){
+          
+         tmpAddrPtr = &((struct sockaddr_in*)ifa->ifa_addr)->sin_addr;
+         char addressBuffer[INET_ADDRSTRLEN];
+         inet_ntop(AF_INET,tmpAddrPtr,addressBuffer,INET_ADDRSTRLEN);
+
+         std::string ipBuffer = ifa->ifa_name;
+         if(ipBuffer != "lo"){
+            ipAddress = addressBuffer;
+         }
+
+       }
   }
 
-  struct addrinfo hints,*res;
-  memset(&hints,0,sizeof(hints));
-  hints.ai_family = AF_INET;
-  hints.ai_socktype = SOCK_STREAM;
-
-  if(getaddrinfo(hostname,nullptr,&hints,&res) != 0){
-     LOG("form getIpAddress() : error getting address info");
-     return NULL;
-  }
-
-  struct sockaddr_in* addr = (struct sockaddr_in*)res->ai_addr;
-  char ipAddr[INET_ADDRSTRLEN];
-  inet_ntop(AF_INET,&(addr->sin_addr),ipAddr,INET_ADDRSTRLEN);
-
-  for(int i=0;i<sizeof(ipAddr);i++){
-     if(ipAddr[i] == '.'){
-       ipAddr[i] = ',';
+  for(int i=0;i<sizeof(ipAddress);i++){
+     if(ipAddress[i] == '.'){
+       ipAddress[i] = ',';
     }
   }
 
-  freeaddrinfo(res);
+  if(ifAddrStruct != NULL){
+     freeifaddrs(ifAddrStruct);
+  }
 
-  return ipAddr;
+  return ipAddress;
 }
 
 #endif

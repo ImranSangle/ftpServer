@@ -61,7 +61,11 @@ std::string getIpAddress();
 
 #include <unistd.h>
 #include <sys/socket.h>
+#include <sys/types.h>
+#include <ifaddrs.h>
+#include <netinet/in.h>
 #include <arpa/inet.h>
+#include <net/if.h>
 #include <string>
 
 class Client{
