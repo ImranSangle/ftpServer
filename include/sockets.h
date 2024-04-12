@@ -14,8 +14,6 @@ class Client{
   
   SOCKET getId();
 
-  bool isConnected();
-
   bool setTimeout(int);
   
   std::string read(int& dataRead);
@@ -74,8 +72,6 @@ class Client{
   Client(int socket);
   
   int getId();
-
-  bool isConnected();
 
   bool setTimeout(int);
   

@@ -14,17 +14,6 @@ Client::Client(SOCKET socket){
   this->id = socket;
 }
 
-bool Client::isConnected(){
-  sockaddr_in addr;
-  int length = sizeof(addr);
-  int result = getpeername(this->id,reinterpret_cast<sockaddr*>(&addr),&length);
-  if(result == SOCKET_ERROR){
-    return false;
-  }else{
-    return true;
-  }
-}
-
 SOCKET Client::getId(){
   return this->id; 
 }
@@ -89,7 +78,7 @@ ServerSocket::ServerSocket(const int& port){
     serverAddress.sin_addr.S_un.S_addr = INADDR_ANY;
 
     if(bind(server,(sockaddr*)&serverAddress,sizeof(serverAddress)) == SOCKET_ERROR){
-       LOG("failed to bind to the address to the socket");
+       LOG("failed to bind the address to the socket with port "<<this->port);
       closesocket(this->server);
       std::exit(-1);
     }
@@ -191,20 +180,10 @@ std::string getIpAddress(){
 #ifdef __linux__
 
 #include <signal.h>
+#include <cstring> 
 
 Client::Client(int socket){
   this->id = socket;
-}
-
-bool Client::isConnected(){
-  sockaddr_in addr;
-  int length = sizeof(addr);
-  int result = getpeername(this->id,reinterpret_cast<sockaddr*>(&addr),&length);
-  if(result < 0){
-    return false;
-  }else{
-    return true;
-  }
 }
 
 int Client::getId(){
@@ -272,7 +251,7 @@ ServerSocket::ServerSocket(const int& port){
     serverAddress.sin_addr.s_addr = INADDR_ANY;
 
     if(bind(server,(sockaddr*)&serverAddress,sizeof(serverAddress)) < 0){
-       LOG("failed to bind to the address to the socket");
+       LOG("failed to bind the address to the socket with port "<<this->port);
       close(this->server);
       std::exit(-1);
     }

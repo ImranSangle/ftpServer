@@ -1,3 +1,4 @@
+#include <cstddef>
 #include <functional>
 #include <iostream>
 #include <mutex>
@@ -154,34 +155,25 @@ void sendFile(Client* client,const std::string& m_path,size_t m_offset) {
     std::ifstream input(m_path, std::ios::binary); // Open file in binary mode
 
     if (input.is_open()) {
-        // input.seekg(0, std::ios::end);
-        // size_t fileSize = input.tellg();
-        // input.seekg(0, std::ios::beg);
 
         input.seekg(m_offset,std::ios::beg);
 
         const size_t bufferSize = 4096; // Adjust buffer size as needed
         char buffer[bufferSize];
 
-        size_t bytesRead = 0;
         while (!input.eof()) {
             input.read(buffer, bufferSize);
             size_t bytesReadThisRound = input.gcount(); 
 
-            if (bytesReadThisRound > 0) {
+            // if (bytesReadThisRound > 0) {
                 if(client->m_write(buffer, bytesReadThisRound) <=0){
                   LOG("from sendfile() : failed to send file breaking the loop.");
                   break;
-                }
-                bytesRead += bytesReadThisRound;
+                // }
             }
         }
 
-        // if (bytesRead != fileSize) {
-        //     std::cout << "Error: File size mismatch."<<std::endl;
-        // }
-
-        input.close(); // Close the file after reading
+        input.close(); 
     } else {
         LOG("Failed to open file from sendFile()");
     }
@@ -397,7 +389,7 @@ void serviceWorker(Client* client){
     client->write(ready);
 
     #ifdef WIN64
-    Browze path("F:","/");
+    Browze path("G:","/");
     #endif
 
     #ifdef __linux__
@@ -438,7 +430,7 @@ void serviceWorker(Client* client){
 
       (command == "SIZE"){
          LOG("client is asking for size sending details");
-        int size = getSize(path.getTrueFullPath(),subCommand);
+        size_t size = getSize(path.getTrueFullPath(),subCommand);
         if(size == -1){
           client->write(("550 "+subCommand+": No such file or directory\r\n").c_str());
         }else{
@@ -515,11 +507,11 @@ void serviceWorker(Client* client){
       }else if
 
       (command == "PASV"){
-         LOG("starting passive mode");
+        LOG("starting passive mode");
         SocketsPointerCleaner(&dataClient,&dataSocket);
+        mutex.lock();
         dataSocket = new ServerSocket(port);
         dataSocket->start();
-        mutex.lock();
          LOG("mutex locked from PASV and sent to getDataClient");
         std::thread worker(getDataClient,&dataClient,dataSocket,std::ref(mutex));
         worker.detach();
@@ -530,11 +522,11 @@ void serviceWorker(Client* client){
       }else if
 
       (command == "EPSV"){
-         LOG("starting epsv mode");
+        LOG("starting epsv mode..");
         SocketsPointerCleaner(&dataClient,&dataSocket);
+        mutex.lock();
         dataSocket = new ServerSocket(port);
         dataSocket->start();
-        mutex.lock();
          LOG("mutex locked from EPSV and sent to getDataClient");
         std::thread worker(getDataClient,&dataClient,dataSocket,std::ref(mutex));
         worker.detach();
@@ -722,7 +714,7 @@ void serviceWorker(Client* client){
       }else if
 
       (command == "REST"){
-        offset = std::atoi(subCommand.c_str());
+        offset = std::stoll(subCommand.c_str());
          LOG("asking for REST setting offset value "<<std::to_string(offset));
         client->write(("350 Restarting at "+std::to_string(offset)+". Send STORE or RETRIEVE to initiate transfer.\r\n").c_str());
       }else if
