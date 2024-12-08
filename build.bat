@@ -1,3 +1,0 @@
-@echo making buildfiles...
-cmake -S . -B build -G"Unix Makefiles" -D CMAKE_EXPORT_COMPILE_COMMANDS=1
-@echo buildfiles generated successfully.
