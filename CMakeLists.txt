@@ -9,6 +9,8 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
 add_definitions(-DDEBUG)
 endif()
 
+set(CMAKE_CXX_STANDARD 17)
+
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 add_executable(ftpServer 
