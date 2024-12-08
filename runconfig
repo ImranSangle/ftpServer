@@ -1,0 +1,5 @@
+PROJECT=FtpServer
+CMAKE_MIN_VERSION=3.5
+EXENAME=ftpServer
+TEST=false
+DEBUG=true
