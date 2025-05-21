@@ -93,8 +93,8 @@ void getWordAt(const char* value,char* input,int index){
 
 }
 
-std::string getCode(const char* text){
-  std::string value = text;
+std::string getCode(const std::string& l_text){
+  std::string value = l_text;
   size_t findResult = value.find(" ");
   if(value.find(" ") == std::string::npos){
     value = value.substr(0,value.length()-1);
@@ -108,8 +108,8 @@ std::string getCode(const char* text){
   return value;
 }
 
-std::string getCommand(const char* text){
-   std::string value = text;  
+std::string getCommand(const std::string& l_text){
+   std::string value = l_text;  
    size_t findPos = value.find(" ");
 
    if(findPos != std::string::npos){

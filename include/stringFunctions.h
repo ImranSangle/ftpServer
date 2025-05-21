@@ -36,6 +36,6 @@ public:
 void getWordAt(const char*,char*,int);
 
 
-std::string getCode(const char*);
+std::string getCode(const std::string& l_text);
 
-std::string getCommand(const char*);
+std::string getCommand(const std::string& l_text);
