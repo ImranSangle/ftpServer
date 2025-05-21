@@ -34,6 +34,9 @@ Browze::Browze(const char* m_drive,const char* m_path){
 
   void Browze::setPrefixPath(const char* m_prefixPath){
        this->prefixPath = m_prefixPath;
+       if(this->prefixPath[this->prefixPath.length()-1] == '/'){
+         this->prefixPath.pop_back();
+       }
   }
   
   void Browze::setPath(const char* m_path){

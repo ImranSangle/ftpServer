@@ -12,6 +12,7 @@
 #include "stringFunctions.h"
 #include "os_common.h"
 #include "log.h"
+#include "macros.h"
 
 
 static int port = 3001;
@@ -52,8 +53,6 @@ std::string formatPath(std::string m_path){
 
 std::string formatListSubcommand(const std::string& m_subcommand){
 
-  std::string result;
-
   size_t aPos = m_subcommand.find("-a");
   size_t lPos = m_subcommand.find("-l");
 
@@ -77,8 +76,13 @@ std::string formatListSubcommand(const std::string& m_subcommand){
 std::string nlst(const char* path){
   std::string names;
   for(const auto &entry : std::filesystem::directory_iterator(path)){
+   
+   FSDITRY
+
     names+=entry.path().filename().string();
     names+="\r\n";
+
+   FSDICATCH
   }
    return names;
 }
@@ -88,62 +92,44 @@ std::string mlsd(const char* path){
   std::string names;
     for(const auto &entry : std::filesystem::directory_iterator(path)){
 
-    try{
-          if(entry.is_directory()){
-            names+= "Size=0;Modify=20240228145553.000;Type=dir; "+entry.path().filename().string();
-          }else{
-            names+= "Size="+std::to_string(entry.file_size())+";Modify=20240228145553.000;Type=file; "+entry.path().filename().string();
-          }
-            names+="\r\n";
+     FSDITRY
+
+      if(entry.is_directory()){
+        names+= "Size=0;Modify=20240228145553.000;Type=dir; "+entry.path().filename().string();
+      }else{
+        names+= "Size="+std::to_string(entry.file_size())+";Modify=20240228145553.000;Type=file; "+entry.path().filename().string();
       }
-      catch (const std::filesystem::filesystem_error& ex) {
-          // Handle the file system error
-          std::cerr << "File system error: " << ex.what() << std::endl;
-          std::cerr << "Path involved: " << ex.path1().string() << std::endl;
-          std::cerr << "Error code: " << ex.code().value() << " - " << ex.code().message() << std::endl;
-          // Continue with the next iteration
-          continue;
-      }
-      catch (const std::exception& ex) {
-          // Handle other exceptions
-          std::cerr << "Exception: " << ex.what() << std::endl;
-          // Continue with the next iteration
-          continue;
-      }
+        names+="\r\n";
+
+     FSDICATCH
     }
 
   return names;
 }
 
 std::string list(const char* path) {
+
     std::string names;
+
     if(!std::filesystem::is_directory(path)){
        names+= "-rw------- 1 owner owner "+std::to_string(std::filesystem::file_size(path))+" Feb 25 00:54 "+path;
        return names;
     }
-    for (const auto& entry : std::filesystem::directory_iterator(path)) {
-        try {
 
-            if (entry.is_directory()) {
-                names += "drwxrwxrwx 2 owner owner 4096 Feb 25 00:54 " + entry.path().filename().string();
-            }
-            else {
-                names += "-rwxrwxrwx 1 owner owner " + std::to_string(entry.file_size()) + " Feb 25 00:54 " + entry.path().filename().string();
-            }
-            names += "\r\n";
-        }
-        catch (const std::filesystem::filesystem_error& ex) {
-            std::cerr << "File system error: " << ex.what() << std::endl;
-            std::cerr << "Path involved: " << ex.path1().string() << std::endl;
-            std::cerr << "Error code: " << ex.code().value() << " - " << ex.code().message() << std::endl;
-            continue;
-        }
-        catch (const std::exception& ex) {
-            // Handle other exceptions
-            std::cerr << "Exception: " << ex.what() << std::endl;
-            // Continue with the next iteration
-            continue;
-        }
+    for (const auto& entry : std::filesystem::directory_iterator(path)) {
+    
+    FSDITRY 
+
+      if (entry.is_directory()) {
+          names += "drwxrwxrwx 2 owner owner 4096 Feb 25 00:54 " + entry.path().filename().string();
+      }
+      else {
+          names += "-rwxrwxrwx 1 owner owner " + std::to_string(entry.file_size()) + " Feb 25 00:54 " + entry.path().filename().string();
+      }
+      names += "\r\n";
+    
+    FSDICATCH
+
     }
     return names;
 }
@@ -263,9 +249,15 @@ std::string mlst(const std::string& m_path,const Browze& path){
 }
 
 bool mkd(const std::string& name,const Browze path){
+     
+     FSTRY
+
      if(isAbsolutePath(name)){
-        std::string c_name = formatPath(name);
+
+       std::string c_name = formatPath(name);
+
        if(!std::filesystem::exists(path.getDrive()+path.getPrefixPath()+c_name)){
+
          if(std::filesystem::create_directory(path.getDrive()+path.getPrefixPath()+c_name)){
              LOG("created a new directory "<<name);
               return true;
@@ -274,22 +266,26 @@ bool mkd(const std::string& name,const Browze path){
        }
 
     }else if(!std::filesystem::exists(path.getTruePath()+"/"+name)){
-           if(std::filesystem::create_directory(path.getTruePath()+"/"+name)){
-             LOG("created a new directory "<<name);
-                return true;
-            }
+
+       if(std::filesystem::create_directory(path.getTruePath()+"/"+name)){
+         LOG("created a new directory "<<name);
+            return true;
+        }
     }   
+
+     FSCATCH
 
      return false;
 }
 
 bool renameFile(const std::string& m_oldname,const std::string& m_newname,const Browze& path){
+
   bool isOldAbsoulute = isAbsolutePath(m_oldname);
   bool isNewAbsoulute = isAbsolutePath(m_newname);
   std::string n_oldname = formatPath(m_oldname);
   std::string n_newname = formatPath(m_newname);
 
-  try{
+  FSTRY
 
   if(isOldAbsoulute){
     if(isNewAbsoulute){
@@ -304,34 +300,24 @@ bool renameFile(const std::string& m_oldname,const std::string& m_newname,const 
       std::filesystem::rename(path.getTrueFullPath()+n_oldname,path.getTrueFullPath()+n_newname);
     }
   }
-    return true;
+    
+  return true;
 
-  }catch(const std::filesystem::filesystem_error& e){
-       LOG("error occoured while renaming "<<e.what());
-      return false;
-  }
+  FSCATCH
 
+  return false;
 }
 
 
 int getSize(const std::string& path, const std::string& filename) {
-    try {
-        return std::filesystem::file_size(path+"/" +filename);
-    }
-    catch (const std::filesystem::filesystem_error& ex) {
-        // Handle the file system error
-        std::cerr << "File system error: " << ex.what() << std::endl;
-        std::cerr << "Path involved: " << ex.path1().string() << std::endl;
-        std::cerr << "Error code: " << ex.code().value() << " - " << ex.code().message() << std::endl;
-        // Return -1 to indicate error
-        return -1;
-    }
-    catch (const std::exception& ex) {
-        // Handle other exceptions
-        std::cerr << "Exception: " << ex.what() << std::endl;
-        // Return -1 to indicate error
-        return -1;
-    }
+
+    FSTRY
+
+      return std::filesystem::file_size(path+"/" +filename);
+
+    FSCATCH
+
+      return -1;
 }
 
 void getDataClient(Client** client,ServerSocket* socket,std::mutex& m_mutex){
