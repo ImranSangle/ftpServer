@@ -10,6 +10,7 @@
 
 #include "sockets.h"
 #include "stringFunctions.h"
+#include "os_common.h"
 #include "log.h"
 
 
@@ -365,18 +366,6 @@ void SocketsPointerCleaner(Client** dataClient,ServerSocket** dataSocket){
     }
 }
 
-#ifdef _WIN64
-
-void loadwsa(){
-  WSADATA ws;
-  if(WSAStartup(MAKEWORD(2,2),&ws) != 0){
-       LOG("failed to load the dll closing...");
-    exit(1);
-  }
-}
-
-#endif
-
 void serviceWorker(Client* client){
 
     ServerSocket* dataSocket = nullptr;
@@ -394,7 +383,7 @@ void serviceWorker(Client* client){
 
     #ifdef __linux__
       Browze path("","/");
-      path.setPrefixPath("/storage/emulated/0");
+      path.setPrefixPath("/data/data/com.termux/files/home/");
     #endif
 
     while(true){
@@ -754,7 +743,7 @@ void serviceWorker(Client* client){
 int main(){
 
   #ifdef _WIN64
-  loadwsa();
+  load_wsa();
   #endif
 
   ServerSocket socket(3000);
@@ -775,7 +764,7 @@ int main(){
   }
 
   #ifdef _WIN64
-  WSACleanup();
+  unload_wsa();
   #endif
 
   return 0;

@@ -1,4 +1,0 @@
-break main
-tui new-layout example {-horizontal asm 2 regs 1} 2 status 0 {-horizontal src 1 cmd 1} 1
-layout example
-run
