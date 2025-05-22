@@ -5,46 +5,51 @@
 #include <string>
 
 class Client{
-  SOCKET id;
-  public:
-  Client(SOCKET socket);
-  
-  SOCKET getId();
 
-  bool setTimeout(int);
-  
-  std::string read(int& dataRead);
+    SOCKET id;
+    public:
 
-  int m_read(const int&,char*);
+    Client(SOCKET socket);
+    
+    SOCKET getId();
 
-  int write(const char* data);
+    bool setTimeout(int);
+    
+    std::string read(int& dataRead);
 
-  int m_write(const char*,const size_t&);
+    int m_read(const int&,char*);
 
-  void close();
-  
-  ~Client();
+    int write(const char* data);
+
+    int m_write(const char*,const size_t&);
+
+    void close();
+    
+    ~Client();
 };
 
 
 class ServerSocket{
-  SOCKET server;
-  int port;
-  sockaddr_in serverAddress;
-  bool socketCreated = false;
-  bool socketBound = false;
-  bool socketListening = false;
 
-  public:
-  ServerSocket(const int& port);
-  
-  void start();
+    SOCKET server;
+    int port;
+    sockaddr_in serverAddress;
+    bool result;
 
-  Client* getClient();
+    public:
+    ServerSocket(const int& port);
 
-  int waitTill(const int&);
+    ServerSocket(const int& start_port,const int& end_port);
+    
+    void start();
 
-  ~ServerSocket();
+    Client* getClient();
+
+    int getPort();
+
+    int waitTill(const int&);
+
+    ~ServerSocket();
 
 };
 

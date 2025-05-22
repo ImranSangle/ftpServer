@@ -1,59 +1,60 @@
 #include <cstddef>
 #include <iostream>
+#include <stdexcept>
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#include <random>
+#include <set>
 
 #include "sockets.h"
 #include "log.h"
 
 //client class function definitions ---------------------------
 Client::Client(SOCKET socket){
-  this->id = socket;
+    this->id = socket;
 }
 
 SOCKET Client::getId(){
-  return this->id; 
+    return this->id; 
 }
 
 bool Client::setTimeout(int milliseconds){
-  timeval timeout;
-  timeout.tv_sec = milliseconds;
-  timeout.tv_usec = 0;
+    timeval timeout;
+    timeout.tv_sec = milliseconds;
+    timeout.tv_usec = 0;
 
-  int result = setsockopt(this->id,SOL_SOCKET,SO_RCVTIMEO,(const char*)&timeout,sizeof(timeout));
+    int result = setsockopt(this->id,SOL_SOCKET,SO_RCVTIMEO,(const char*)&timeout,sizeof(timeout));
 
-  return result != SOCKET_ERROR;
+    return result != SOCKET_ERROR;
 }
 
 std::string Client::read(int& dataRead){
-  std::string buffer;
-  char raw[4096];
-  //char command[100];
-  int readData = ::recv(this->id,raw,sizeof(raw),0);
-  dataRead = readData;
-  raw[readData] = 0;
-  //getWordAt(raw,command,0);
-  buffer = raw;
-  return buffer;
+    std::string buffer;
+    char raw[4096];
+
+    int readData = ::recv(this->id,raw,sizeof(raw),0);
+    dataRead = readData;
+    raw[readData] = 0;
+
+    buffer = raw;
+    return buffer;
 }
 
 int Client::m_read(const int& bufferSize,char* o_buffer){
-  
-  return ::recv(this->id,o_buffer,bufferSize,0);
-  
+    return ::recv(this->id,o_buffer,bufferSize,0);
 }
 
 int Client::write(const char* data){
-  return  ::send(this->id,data,strlen(data),0);
+    return  ::send(this->id,data,strlen(data),0);
 }
 
 int Client::m_write(const char* data,const size_t& size){
-  return ::send(this->id,data,size,0);
+    return ::send(this->id,data,size,0);
 }
 
 void Client::close(){
-  ::closesocket(this->id);
-  delete this;
+    ::closesocket(this->id);
+    delete this;
 }
 
 Client::~Client(){
@@ -63,111 +64,169 @@ Client::~Client(){
 //socket class function definitions ---------------------------
 
 ServerSocket::ServerSocket(const int& port){
+
     this->port = port;
+    this->result = true;
     this->server = socket(AF_INET,SOCK_STREAM,IPPROTO_TCP);
+
     if(server == INVALID_SOCKET){
-       LOG("failed to create server");
-      std::exit(-1);
+        this->result = false;
+        throw std::runtime_error("failed to create server");
     }
-    socketCreated = true;
+    
+    int opt = 1;
+    setsockopt(this->server, SOL_SOCKET, SO_REUSEADDR,(char*)&opt, sizeof(opt));
+
     serverAddress.sin_family = AF_INET;
     serverAddress.sin_port = htons(port);
     serverAddress.sin_addr.S_un.S_addr = INADDR_ANY;
 
     if(bind(server,(sockaddr*)&serverAddress,sizeof(serverAddress)) == SOCKET_ERROR){
-       LOG("failed to bind the address to the socket with port "<<this->port);
-      closesocket(this->server);
-      std::exit(-1);
+        closesocket(this->server);
+        this->result = false;
+        throw std::runtime_error("failed to bind to the socket with port "+std::to_string(this->port));
     }
-    socketBound = true;
-  }
+}
+
+ServerSocket::ServerSocket(const int& start_port,const int& end_port){
+
+    if(start_port > end_port){
+        throw std::logic_error("start_port is larger than end_port!");
+    }
+
+    this->result = true;
+    this->server = socket(AF_INET,SOCK_STREAM,IPPROTO_TCP);
+
+    if(server == INVALID_SOCKET){
+        this->result = false;
+        throw std::runtime_error("failed to create server");
+    }
+    
+    int opt = 1;
+    setsockopt(this->server, SOL_SOCKET, SO_REUSEADDR,(char*)&opt, sizeof(opt));
+
+    serverAddress.sin_family = AF_INET;
+    serverAddress.sin_addr.S_un.S_addr = INADDR_ANY;
+
+    std::set<int> ports;
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<int> dist(start_port,end_port);
+
+
+    while(ports.size() < (end_port - start_port)){
+
+        this->port = dist(gen);
+        serverAddress.sin_port = htons(this->port);
+
+        if(bind(server,(sockaddr*)&serverAddress,sizeof(serverAddress)) == SOCKET_ERROR){
+            ports.insert(this->port);
+        }else{
+            return;
+        }
+    }
+
+    closesocket(this->server);
+    this->result = false;
+    throw std::runtime_error("failed to bind to the socket with port "+std::to_string(this->port));
+}
   
-  void ServerSocket::start(){
-    if(socketCreated && socketBound){
-    listen(server,10);
-    socketListening = true;
-       LOG("Server is listening on port "<<port);
-    }else{
-       LOG("socket is not created or bounded error starting the server");
-    closesocket(this->server);
-    std::exit(-1);
+void ServerSocket::start(){
+
+    if(listen(server,10) == SOCKET_ERROR){
+        closesocket(this->server);
+        this->result = false;
+        throw std::runtime_error("failed to listen to the socket");
     }
-  }
 
-  Client* ServerSocket::getClient(){
-    if(socketListening){
-    SOCKET clientSocket = accept(this->server,0,0);
-      if(clientSocket != INVALID_SOCKET){
-        Client* client  = new Client(clientSocket); 
-        return client;
-      }else{
-         LOG("from sockets.cpp = client socket is INVALID_SOCKET returning nullptr");
-        return nullptr;
-      }
+    LOG("Server is listening on port "<<this->port);
+}
+
+Client* ServerSocket::getClient(){
+
+    if(result){
+
+        SOCKET clientSocket = accept(this->server,0,0);
+
+        if(clientSocket != INVALID_SOCKET){
+            Client* client  = new Client(clientSocket); 
+            return client;
+        }else{
+            throw std::runtime_error("function accept returned with -1 !");
+        }
+
     }else{
-       LOG("error: cant get client socket is not in listening state");
-    closesocket(this->server);
-    std::exit(-1);
-    //return nullptr;
+        closesocket(this->server);
+        throw std::runtime_error("can't get client, socket is not in listening state!");
     }
-  }
 
-  int ServerSocket::waitTill(const int& sec){
+    return nullptr;
+}
 
-  timeval timeout;
-  timeout.tv_sec = sec;
-  timeout.tv_usec = 0;
+int ServerSocket::getPort(){
 
-  fd_set fd;
-  FD_ZERO(&fd);
-  FD_SET(this->server,&fd);
+    return this->port;
 
-  int selectResult = select(0,&fd,nullptr,nullptr,&timeout);
-  if(selectResult == SOCKET_ERROR){
-       LOG("wait failed closing..");
-     ::closesocket(this->server);
-     std::exit(1);
-  }else if(selectResult == 0){
-    return 1;
-  }
+}
 
-  return 0;
+int ServerSocket::waitTill(const int& sec){
+
+    timeval timeout;
+    timeout.tv_sec = sec;
+    timeout.tv_usec = 0;
+
+    fd_set fd;
+    FD_ZERO(&fd);
+    FD_SET(this->server,&fd);
+
+    int selectResult = select(0,&fd,nullptr,nullptr,&timeout);
+
+    if(selectResult == SOCKET_ERROR){
+        ::closesocket(this->server);
+        throw std::runtime_error("failed to wait for client with select, error occoured!");
+    }else if(selectResult == 0){
+        return 1;
+    }
+
+    return 0;
 
 }  
 
 ServerSocket::~ServerSocket(){
-  ::closesocket(this->server);
-   LOG("server with port "<<this->port<<" destroyed");
+    ::closesocket(this->server);
+    LOG("server with port "<<this->port<<" destroyed");
 }
 
 std::string getIpAddress(){
   
-  char hostname[256];
-  if(gethostname(hostname,sizeof(hostname)) == SOCKET_ERROR){
-      LOG("from getIpAddress() : getting hostname failed.");
-      return NULL;
-  }
+    char hostname[256];
 
-  struct sockaddr_in sockaddr_ipv4;
-  struct hostent* pHost;
-   
-  pHost = gethostbyname(hostname);
-  if(pHost == NULL){
-    LOG("from getIpAddress() : gethostbyname failed.");
-    return NULL;
-  }
-
-  sockaddr_ipv4.sin_family = AF_INET;
-  sockaddr_ipv4.sin_addr.S_un.S_addr = *((unsigned long*)pHost->h_addr);
-
-  char ipAddr[INET_ADDRSTRLEN];
-  inet_ntop(AF_INET, &sockaddr_ipv4.sin_addr,ipAddr, INET_ADDRSTRLEN);
-
-  for(int i=0;i<sizeof(ipAddr);i++){
-     if(ipAddr[i] == '.'){
-       ipAddr[i] = ',';
+    if(gethostname(hostname,sizeof(hostname)) == SOCKET_ERROR){
+        LOG("from getIpAddress() : getting hostname failed.");
+        return NULL;
     }
-  }
 
-  return ipAddr;
+    struct sockaddr_in sockaddr_ipv4;
+    struct hostent* pHost;
+     
+    pHost = gethostbyname(hostname);
+
+    if(pHost == NULL){
+        LOG("from getIpAddress() : gethostbyname failed.");
+        return NULL;
+    }
+
+    sockaddr_ipv4.sin_family = AF_INET;
+    sockaddr_ipv4.sin_addr.S_un.S_addr = *((unsigned long*)pHost->h_addr);
+
+    char ipAddr[INET_ADDRSTRLEN];
+    inet_ntop(AF_INET, &sockaddr_ipv4.sin_addr,ipAddr, INET_ADDRSTRLEN);
+
+    for(int i=0;i<sizeof(ipAddr);i++){
+        if(ipAddr[i] == '.'){
+           ipAddr[i] = ',';
+        }
+    }
+
+    return ipAddr;
 }

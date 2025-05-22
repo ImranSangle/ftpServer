@@ -2,6 +2,7 @@
 #include <functional>
 #include <iostream>
 #include <mutex>
+#include <stdexcept>
 #include <string>
 #include <algorithm>
 #include <thread>
@@ -15,7 +16,9 @@
 #include "macros.h"
 
 
-static int port = 3001;
+#define DATA_START_PORT 3001
+#define DATA_END_PORT 3101
+
 
 //status codes--------------------------------------------
 static const char* ready = "220 service ready for new user\r\n";
@@ -36,6 +39,7 @@ static const char* transferComplete = "226 transfer complete\r\n";
 static const char* rnfr = "350 Requested file action pending further information\r\n";
 static const char* rnto = "250 Requested file action okay, file renamed\r\n";
 static const char* rn_error = "503 Can't find the file which has to be renamed.\r\n";
+static const char* cant_open_data_conn = "425 Can't open data connection.\r\n";
 
 std::string make_absolute_path(const Browze& browser, const std::string& l_path){
 
@@ -286,20 +290,21 @@ int getSize(const std::string& l_path) {
 
 void getDataClient(Client** client,ServerSocket* socket,std::mutex& m_mutex){
 
-    if(socket->waitTill(2) == 0){
+    try{
 
-    *client = socket->getClient(); 
+        if(socket->waitTill(2) == 0){
 
-    }
+            *client = socket->getClient(); 
 
-    if(*client != nullptr){
-       LOG("getDataClient : got a client for "<<(*client)->getId());
-    }else{
-       LOG("getDataClient : socket->getclient() returned with nullptr");
+            LOG("getDataClient : got a dataClient with id "<<(*client)->getId());
+        }
+
+    }catch(const std::runtime_error& error){
+        LOG("failed to get dataClient Reason: "<<error.what());
     }
 
     m_mutex.unlock();
-     LOG("mutex unlocked from getDataClient");
+    LOG("mutex unlocked from getDataClient");
 }
 
 void SocketsPointerCleaner(Client** dataClient,ServerSocket** dataSocket){
@@ -320,6 +325,7 @@ void serviceWorker(Client* client){
 
     ServerSocket* dataSocket = nullptr;
     Client* dataClient = nullptr;
+    int port;
     size_t offset = 0;
     std::string ipAddress = getIpAddress();
     std::string renameBuffer;
@@ -455,29 +461,49 @@ void serviceWorker(Client* client){
         (command == "PASV"){
             LOG("starting passive mode");
             SocketsPointerCleaner(&dataClient,&dataSocket);
+            
+            try{
+                dataSocket = new ServerSocket(DATA_START_PORT,DATA_END_PORT);
+                dataSocket->start();
+                port = dataSocket->getPort();
+            }catch(const std::runtime_error& error){
+                LOG("Failed to create a socket for data connection, Reason: "<<error.what());
+                delete dataSocket;
+                dataSocket = nullptr;
+                client->write(cant_open_data_conn);
+                continue;
+            }
+
             mutex.lock();
-            dataSocket = new ServerSocket(port);
-            dataSocket->start();
             LOG("mutex locked from PASV and sent to getDataClient");
             std::thread worker(getDataClient,&dataClient,dataSocket,std::ref(mutex));
             worker.detach();
             int p1 = port/256;
             int p2 = port%256;
             client->write((std::string(passiveMode)+"("+ipAddress+","+std::to_string(p1)+","+std::to_string(p2)+")\r\n").c_str());
-            port++;
         }else if
 
         (command == "EPSV"){
             LOG("starting epsv mode..");
             SocketsPointerCleaner(&dataClient,&dataSocket);
+
+            try{
+                dataSocket = new ServerSocket(DATA_START_PORT,DATA_END_PORT);
+                dataSocket->start();
+                port = dataSocket->getPort();
+            }catch(const std::runtime_error& error){
+                LOG("Failed to create a socket for data connection, Reason: "<<error.what());
+                delete dataSocket;
+                dataSocket = nullptr;
+                client->write(cant_open_data_conn);
+                continue;
+            }
+
             mutex.lock();
-            dataSocket = new ServerSocket(port);
-            dataSocket->start();
             LOG("mutex locked from EPSV and sent to getDataClient");
             std::thread worker(getDataClient,&dataClient,dataSocket,std::ref(mutex));
             worker.detach();
             client->write((std::string(ePassiveMode)+std::to_string(port)+std::string("|)\r\n")).c_str());
-            port++;
         }else if
 
         (command == "NLST"){
