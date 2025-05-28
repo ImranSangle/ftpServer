@@ -530,7 +530,7 @@ void serviceWorker(Client* client){
 
             if(std::filesystem::exists(absolute_path)){
                 LOG("from MLST : Sending mlst of the requested file "+subCommand);
-                client->write(("250-"+mlst(absolute_path)).c_str());
+                client->write(("250-\r\n"+mlst(absolute_path)).c_str());
                 client->write("250 Requested file action okay, completed\r\n");
             }else{
                 LOG("from MLST : Not a valid pathname");
