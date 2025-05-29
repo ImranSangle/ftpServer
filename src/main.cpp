@@ -55,6 +55,19 @@ std::string make_absolute_path(const Browze& browser, const std::string& l_path)
 
 }
 
+bool path_exists(const std::string& l_path){
+
+    FSTRY
+
+    if(std::filesystem::exists(l_path)){
+        return true;
+    }
+
+    FSCATCH
+
+    return false;
+}
+
 std::string formatListSubcommand(const std::string& m_subcommand){
 
   size_t aPos = m_subcommand.find("-a");
@@ -81,16 +94,18 @@ std::string nlst(const std::string& l_path){
 
     std::string names;
 
+    FSTRY
+
     for(const auto &entry : std::filesystem::directory_iterator(l_path)){
      
-        FSDITRY
 
-            names+=entry.path().filename().string();
-            names+="\r\n";
+        names+=entry.path().filename().string();
+        names+="\r\n";
 
-        FSDICATCH
 
     }
+
+    FSCATCH
 
     return names;
 }
@@ -100,19 +115,21 @@ std::string mlsd(const std::string& l_path){
 
     std::string names;
 
+    FSTRY
+
     for(const auto &entry : std::filesystem::directory_iterator(l_path)){
 
-        FSDITRY
 
-            if(entry.is_directory()){
-                names+= "Size=0;Modify=20240228145553.000;Type=dir; "+entry.path().filename().string();
-            }else{
-                names+= "Size="+std::to_string(entry.file_size())+";Modify=20240228145553.000;Type=file; "+entry.path().filename().string();
-            }
-            names+="\r\n";
+        if(entry.is_directory()){
+            names+= "Size=0;Modify=20240228145553.000;Type=dir; "+entry.path().filename().string();
+        }else{
+            names+= "Size="+std::to_string(entry.file_size())+";Modify=20240228145553.000;Type=file; "+entry.path().filename().string();
+        }
+        names+="\r\n";
 
-        FSDICATCH
     }
+
+    FSCATCH
 
   return names;
 }
@@ -121,6 +138,8 @@ std::string list(const std::string& l_path) {
 
     std::string names;
 
+    FSTRY
+
     if(!std::filesystem::is_directory(l_path)){
         names+= "-rw------- 1 owner owner "+std::to_string(std::filesystem::file_size(l_path))+" Feb 25 00:54 "+l_path;
         return names;
@@ -128,19 +147,19 @@ std::string list(const std::string& l_path) {
 
     for (const auto& entry : std::filesystem::directory_iterator(l_path)) {
     
-        FSDITRY 
 
-            if (entry.is_directory()) {
-                names += "drwxrwxrwx 2 owner owner 4096 Feb 25 00:54 " + entry.path().filename().string();
-            }
-            else {
-                names += "-rwxrwxrwx 1 owner owner " + std::to_string(entry.file_size()) + " Feb 25 00:54 " + entry.path().filename().string();
-            }
-            names += "\r\n";
+        if (entry.is_directory()) {
+            names += "drwxrwxrwx 2 owner owner 4096 Feb 25 00:54 " + entry.path().filename().string();
+        }
+        else {
+            names += "-rwxrwxrwx 1 owner owner " + std::to_string(entry.file_size()) + " Feb 25 00:54 " + entry.path().filename().string();
+        }
+        names += "\r\n";
         
-        FSDICATCH
 
     }
+
+    FSCATCH
 
     return names;
 }
@@ -429,7 +448,7 @@ void serviceWorker(Client* client){
 
           std::string absolute_path = make_absolute_path(path, subCommand);
 
-          if(std::filesystem::exists(absolute_path)){
+          if(path_exists(absolute_path)){
 
               if(isAbsolutePath(subCommand)){
                   path.setPath(subCommand.c_str());
@@ -528,7 +547,7 @@ void serviceWorker(Client* client){
 
             std::string absolute_path = make_absolute_path(path, subCommand);
 
-            if(std::filesystem::exists(absolute_path)){
+            if(path_exists(absolute_path)){
                 LOG("from MLST : Sending mlst of the requested file "+subCommand);
                 client->write(("250-\r\n"+mlst(absolute_path)).c_str());
                 client->write("250 Requested file action okay, completed\r\n");
@@ -549,7 +568,7 @@ void serviceWorker(Client* client){
 
               finalListPath = make_absolute_path(path, formatedListPath);
               
-              if(std::filesystem::exists(finalListPath)){
+              if(path_exists(finalListPath)){
                 client->write(fileStatusOkay);
                 LOG("the mlsd path after is "<<finalListPath);
                 mutex.lock();
@@ -581,7 +600,7 @@ void serviceWorker(Client* client){
 
               finalListPath = make_absolute_path(path,formatedListPath);
               
-              if(std::filesystem::exists(finalListPath)){
+              if(path_exists(finalListPath)){
                 client->write(fileStatusOkay);
                 mutex.lock();
                 LOG("mutex locked from LIST");
@@ -611,7 +630,7 @@ void serviceWorker(Client* client){
 
             LOG("the RETR path is "<<absolute_path);
 
-            if(std::filesystem::exists(absolute_path)){
+            if(path_exists(absolute_path)){
 
                 if(std::filesystem::is_directory(absolute_path)){
                     client->write(("550 "+absolute_path+": Not a plain file\r\n").c_str());
@@ -649,7 +668,7 @@ void serviceWorker(Client* client){
             std::string absolute_path = make_absolute_path(path, subCommand);
             std::string absolute_directory = absolute_path.substr(0,absolute_path.rfind('/'));
 
-            if(std::filesystem::exists(absolute_directory)){
+            if(path_exists(absolute_directory)){
 
                 if(std::filesystem::is_directory(absolute_path)){
                     client->write(("550 "+absolute_path+": Not a plain file\r\n").c_str());
