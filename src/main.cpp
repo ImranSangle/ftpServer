@@ -187,6 +187,8 @@ void serviceWorker(Client* client){
 
         LOG(fullCommand);
 
+//-------------------------------------------RFC_959--------------------------------------------------------
+
         if(command  == "USER"){
             LOG("username is correct asking for password");
             client->write(askPassword);
@@ -200,21 +202,6 @@ void serviceWorker(Client* client){
         (command == "TYPE"){
             LOG("client want's type binary accepting");
             client->write(ok);
-        }else if
-
-        (command == "SIZE"){
-            LOG("client is asking for size sending details");
-                size_t size = getSize(make_absolute_path(path, subCommand));
-            if(size == -1){
-                client->write(("550 "+subCommand+": No such file or directory\r\n").c_str());
-            }else{
-                client->write((std::string("213 ")+std::to_string(size)+"\r\n").c_str());
-            }
-        }else if
-
-        (command == "FEAT"){
-            LOG("client is asking for features, sending not found");
-            client->write(syntaxError);
         }else if
 
         (command == "MKD"){
@@ -312,29 +299,6 @@ void serviceWorker(Client* client){
             client->write((std::string(passiveMode)+"("+ipAddress+","+std::to_string(p1)+","+std::to_string(p2)+")\r\n").c_str());
         }else if
 
-        (command == "EPSV"){
-            LOG("starting epsv mode..");
-            SocketsPointerCleaner(&dataClient,&dataSocket);
-
-            try{
-                dataSocket = new ServerSocket(DATA_START_PORT,DATA_END_PORT);
-                dataSocket->start();
-                port = dataSocket->getPort();
-            }catch(const std::runtime_error& error){
-                LOG("Failed to create a socket for data connection, Reason: "<<error.what());
-                delete dataSocket;
-                dataSocket = nullptr;
-                client->write(cant_open_data_conn);
-                continue;
-            }
-
-            mutex.lock();
-            LOG("mutex locked from EPSV and sent to getDataClient");
-            std::thread worker(getDataClient,&dataClient,dataSocket,std::ref(mutex));
-            worker.detach();
-            client->write((std::string(ePassiveMode)+std::to_string(port)+std::string("|)\r\n")).c_str());
-        }else if
-
         (command == "NLST"){
             if(dataSocket == nullptr){
                 client->write("503 PORT or PASV must be issued first\r\n");
@@ -351,51 +315,6 @@ void serviceWorker(Client* client){
                 LOG("passive data connection closed");
                 mutex.unlock();
             }
-        }else if
-
-        (command == "MLST"){
-
-            std::string absolute_path = make_absolute_path(path, subCommand);
-
-            if(path_exists(absolute_path)){
-                LOG("from MLST : Sending mlst of the requested file "+subCommand);
-                client->write(("250-\r\n"+mlst(absolute_path)).c_str());
-                client->write("250 Requested file action okay, completed\r\n");
-            }else{
-                LOG("from MLST : Not a valid pathname");
-                client->write("501 Not a valid pathname\r\n");
-            }
-        }else if
-
-        (command == "MLSD"){
-          if(dataSocket == nullptr){
-             client->write("503 PORT or PASV must be issued first\r\n");
-          }else{
-              LOG("asked MLSD sending mlsdList");
-
-              std::string formatedListPath = formatListSubcommand(subCommand);
-              std::string finalListPath;
-
-              finalListPath = make_absolute_path(path, formatedListPath);
-              
-              if(path_exists(finalListPath)){
-                client->write(fileStatusOkay);
-                LOG("the mlsd path after is "<<finalListPath);
-                mutex.lock();
-                dataClient->write(mlsd(finalListPath).c_str());
-                LOG("list sent succesfully..");
-                dataClient->close(); 
-                dataClient = nullptr;
-
-                client->write(closingDataConnection);
-                LOG("passive data connection closed");
-                mutex.unlock();
-
-              }else{
-                LOG("from MLSD : sending 450 Non existing file to the client");
-                client->write("450 Non existing file\r\n");
-              }
-          }
         }else if
 
         (command == "LIST"){
@@ -504,12 +423,6 @@ void serviceWorker(Client* client){
             }
         }else if
 
-        (command == "REST"){
-            offset = std::stoll(subCommand.c_str());
-            LOG("asking for REST setting offset value "<<std::to_string(offset));
-            client->write(("350 Restarting at "+std::to_string(offset)+". Send STORE or RETRIEVE to initiate transfer.\r\n").c_str());
-        }else if
-
         (command == "NOOP"){
             LOG("asking for NOOP sending ok");
             client->write(ok);
@@ -531,6 +444,109 @@ void serviceWorker(Client* client){
             SocketsPointerCleaner(&dataClient,&dataSocket);
             client->write("goodbye\r\n");
             break;
+        }else if
+
+
+//-------------------------------------------RFC_2389-------------------------------------------------------
+
+
+        (command == "FEAT"){
+            LOG("client is asking for features, sending not found");
+            client->write(syntaxError);
+        }else if
+
+
+//-------------------------------------------RFC_2428-------------------------------------------------------
+
+
+        (command == "EPSV"){
+            LOG("starting epsv mode..");
+            SocketsPointerCleaner(&dataClient,&dataSocket);
+
+            try{
+                dataSocket = new ServerSocket(DATA_START_PORT,DATA_END_PORT);
+                dataSocket->start();
+                port = dataSocket->getPort();
+            }catch(const std::runtime_error& error){
+                LOG("Failed to create a socket for data connection, Reason: "<<error.what());
+                delete dataSocket;
+                dataSocket = nullptr;
+                client->write(cant_open_data_conn);
+                continue;
+            }
+
+            mutex.lock();
+            LOG("mutex locked from EPSV and sent to getDataClient");
+            std::thread worker(getDataClient,&dataClient,dataSocket,std::ref(mutex));
+            worker.detach();
+            client->write((std::string(ePassiveMode)+std::to_string(port)+std::string("|)\r\n")).c_str());
+        }else if
+
+
+//-------------------------------------------RFC_3659-------------------------------------------------------
+
+
+        (command == "MLST"){
+
+            std::string absolute_path = make_absolute_path(path, subCommand);
+
+            if(path_exists(absolute_path)){
+                LOG("from MLST : Sending mlst of the requested file "+subCommand);
+                client->write(("250-\r\n"+mlst(absolute_path)).c_str());
+                client->write("250 Requested file action okay, completed\r\n");
+            }else{
+                LOG("from MLST : Not a valid pathname");
+                client->write("501 Not a valid pathname\r\n");
+            }
+        }else if
+
+        (command == "MLSD"){
+          if(dataSocket == nullptr){
+             client->write("503 PORT or PASV must be issued first\r\n");
+          }else{
+              LOG("asked MLSD sending mlsdList");
+
+              std::string formatedListPath = formatListSubcommand(subCommand);
+              std::string finalListPath;
+
+              finalListPath = make_absolute_path(path, formatedListPath);
+              
+              if(path_exists(finalListPath)){
+                client->write(fileStatusOkay);
+                LOG("the mlsd path after is "<<finalListPath);
+                mutex.lock();
+                dataClient->write(mlsd(finalListPath).c_str());
+                LOG("list sent succesfully..");
+                dataClient->close(); 
+                dataClient = nullptr;
+
+                client->write(closingDataConnection);
+                LOG("passive data connection closed");
+                mutex.unlock();
+
+              }else{
+                LOG("from MLSD : sending 450 Non existing file to the client");
+                client->write("450 Non existing file\r\n");
+              }
+          }
+        }else if
+
+        (command == "REST"){
+            offset = std::stoll(subCommand.c_str());
+            LOG("asking for REST setting offset value "<<std::to_string(offset));
+            client->write(("350 Restarting at "+std::to_string(offset)+". Send STORE or RETRIEVE to initiate transfer.\r\n").c_str());
+        }else if
+
+        (command == "SIZE"){
+            LOG("client is asking for size sending details");
+                size_t size = getSize(make_absolute_path(path, subCommand));
+            if(size == -1){
+                client->write(("550 "+subCommand+": No such file or directory\r\n").c_str());
+            }else{
+                client->write((std::string("213 ")+std::to_string(size)+"\r\n").c_str());
+            }
+
+
         }else{
             LOG("no command"<<command<<" found sending not implemented");
             client->write(notImplemented);
