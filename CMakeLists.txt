@@ -27,6 +27,8 @@ endif()
 add_executable(ftpServer 
 src/main.cpp
 src/stringFunctions.cpp
+src/rfc_959.cpp
+src/rfc_3659.cpp
 ${OSFILES})
 
 if(WIN32)
