@@ -25,6 +25,18 @@ static std::string format_file_time(const std::filesystem::file_time_type& l_tim
 //===========================================================
 
 
+std::string mdtm(const std::string& l_path){
+
+    FSTRY
+
+    return "213 "+format_file_time(std::filesystem::last_write_time(l_path))+"\r\n";
+
+    FSCATCH
+
+    return "550 File not found";
+
+}
+
 
 std::string mlst(const std::string& l_path){
 

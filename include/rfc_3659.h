@@ -2,6 +2,8 @@
 
 #include <string>
 
+std::string mdtm(const std::string& l_path);
+
 std::string mlst(const std::string& l_path);
 
 std::string mlsd(const std::string& l_path);

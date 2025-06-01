@@ -486,6 +486,18 @@ void serviceWorker(Client* client){
 //-------------------------------------------RFC_3659-------------------------------------------------------
 
 
+        (command == "MDTM"){
+
+            std::string absolute_path = make_absolute_path(path, subCommand);
+
+            if(path_exists(absolute_path)){
+                client->write(mdtm(absolute_path).c_str());
+            }else{
+                client->write("550 File not found\r\n");
+            }
+
+        }else if
+
         (command == "MLST"){
 
             std::string absolute_path = make_absolute_path(path, subCommand);
