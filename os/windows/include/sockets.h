@@ -1,46 +1,45 @@
 #pragma once
 
 #include <_timeval.h>
-#include <winsock2.h>
 #include <string>
+#include <winsock2.h>
 
-class Client{
+class Client {
 
     SOCKET id;
-    public:
 
+  public:
     Client(SOCKET socket);
-    
+
     SOCKET getId();
 
     bool setTimeout(int);
-    
+
     std::string read(int& dataRead);
 
-    int m_read(const int&,char*);
+    int m_read(const int&, char*);
 
     int write(const char* data);
 
-    int m_write(const char*,const size_t&);
+    int m_write(const char*, const size_t&);
 
     void close();
-    
+
     ~Client();
 };
 
-
-class ServerSocket{
+class ServerSocket {
 
     SOCKET server;
     int port;
     sockaddr_in serverAddress;
     bool result;
 
-    public:
+  public:
     ServerSocket(const int& port);
 
-    ServerSocket(const int& start_port,const int& end_port);
-    
+    ServerSocket(const int& start_port, const int& end_port);
+
     void start();
 
     Client* getClient();
@@ -50,7 +49,6 @@ class ServerSocket{
     int waitTill(const int&);
 
     ~ServerSocket();
-
 };
 
 std::string getIpAddress();

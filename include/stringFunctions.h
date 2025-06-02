@@ -2,39 +2,39 @@
 
 #include <string>
 
-class Browze{
-private:
-  std::string path;
-  std::string drive;
-  std::string prefixPath;
-public:
-  Browze(const char*,const char* m_path);
+class Browze {
+  private:
+    std::string path;
+    std::string drive;
+    std::string prefixPath;
 
-  std::string getPath() const ;
+  public:
+    Browze(const char*, const char* m_path);
 
-  std::string getTruePath() const ;
+    std::string getPath() const;
 
-  std::string getFullPath() const ;
+    std::string getTruePath() const;
 
-  std::string getTrueFullPath() const ;
+    std::string getFullPath() const;
 
-  std::string getDrive() const ;
+    std::string getTrueFullPath() const;
 
-  std::string getPrefixPath() const ;
+    std::string getDrive() const;
 
-  void setPrefixPath(const char*);
+    std::string getPrefixPath() const;
 
-  void setPath(const char*);
-  
-  void setDrive(const char*);
+    void setPrefixPath(const char*);
 
-  void to(const char* m_name);
+    void setPath(const char*);
 
-  void up();
+    void setDrive(const char*);
+
+    void to(const char* m_name);
+
+    void up();
 };
 
-void getWordAt(const char*,char*,int);
-
+void getWordAt(const char*, char*, int);
 
 std::string getCode(const std::string& l_text);
 
