@@ -4,9 +4,11 @@
 #include <functional>
 #include <iostream>
 #include <mutex>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <thread>
+#include <utility>
 
 #include "log.h"
 #include "macros.h"
@@ -66,26 +68,24 @@ bool path_exists(const std::string& l_path) {
     return false;
 }
 
-std::string formatListSubcommand(const std::string& m_subcommand) {
+std::pair<std::string, std::string> parse_list_subcommand(const std::string& l_subcommand) {
 
-    size_t aPos = m_subcommand.find("-a");
-    size_t lPos = m_subcommand.find("-l");
+    std::istringstream iss(l_subcommand);
+    std::string token;
+    std::string flags;
+    std::string path;
 
-    if (aPos != std::string::npos) {
-        if (m_subcommand[aPos + 2] == ' ') {
-            return m_subcommand.substr(aPos + 3, m_subcommand.length());
+    while (iss >> token) {
+
+        if (!token.empty() && token[0] == '-') {
+            flags += token.substr(1);
         } else {
-            return m_subcommand;
+            path = token;
+            break;
         }
-    } else if (lPos != std::string::npos) {
-        if (m_subcommand[lPos + 2] == ' ') {
-            return m_subcommand.substr(lPos + 3, m_subcommand.length());
-        } else {
-            return m_subcommand;
-        }
-    } else {
-        return m_subcommand;
     }
+
+    return {flags, path};
 }
 
 std::string removeExtras(const std::string& value) {
@@ -322,10 +322,9 @@ void serviceWorker(Client* client) {
             } else {
                 LOG("asked LIST sending file list..");
 
-                std::string formatedListPath = formatListSubcommand(subCommand);
-                std::string finalListPath;
+                std::pair<std::string, std::string> parsed_subcommand = parse_list_subcommand(subCommand); // todo: implement flags
 
-                finalListPath = make_absolute_path(path, formatedListPath);
+                std::string finalListPath = make_absolute_path(path, parsed_subcommand.second);
 
                 if (path_exists(finalListPath)) {
                     client->write(fileStatusOkay);
@@ -502,10 +501,9 @@ void serviceWorker(Client* client) {
             } else {
                 LOG("asked MLSD sending mlsdList");
 
-                std::string formatedListPath = formatListSubcommand(subCommand);
-                std::string finalListPath;
+                std::pair<std::string, std::string> parsed_subcommand = parse_list_subcommand(subCommand); // todo: implement flags
 
-                finalListPath = make_absolute_path(path, formatedListPath);
+                std::string finalListPath = make_absolute_path(path, parsed_subcommand.second);
 
                 if (path_exists(finalListPath)) {
                     client->write(fileStatusOkay);
