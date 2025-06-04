@@ -4,7 +4,6 @@
 #include <random>
 #include <set>
 #include <stdexcept>
-#include <sys/socket.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>
 
