@@ -75,14 +75,19 @@ std::pair<std::string, std::string> parse_list_subcommand(const std::string& l_s
     std::string token;
     std::string flags;
     std::string path;
+    bool path_started = false;
 
     while (iss >> token) {
 
-        if (!token.empty() && token[0] == '-') {
+        if (!path_started && !token.empty() && token[0] == '-') {
             flags += token.substr(1);
         } else {
-            path = token;
-            break;
+
+            if (!path.empty())
+                path += " ";
+
+            path += token;
+            path_started = true;
         }
     }
 
