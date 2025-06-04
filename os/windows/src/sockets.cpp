@@ -1,8 +1,10 @@
 #include <cstddef>
 #include <iostream>
+#include <memory>
 #include <random>
 #include <set>
 #include <stdexcept>
+#include <sys/socket.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>
 
@@ -54,10 +56,10 @@ int Client::m_write(const char* data, const size_t& size) {
 
 void Client::close() {
     ::closesocket(this->id);
-    delete this;
 }
 
 Client::~Client() {
+    ::closesocket(this->id);
     LOG("client destroyed");
 }
 
@@ -141,15 +143,14 @@ void ServerSocket::start() {
     LOG("Server is listening on port " << this->port);
 }
 
-Client* ServerSocket::getClient() {
+std::unique_ptr<Client> ServerSocket::getClient() {
 
     if (result) {
 
         SOCKET clientSocket = accept(this->server, 0, 0);
 
         if (clientSocket != INVALID_SOCKET) {
-            Client* client = new Client(clientSocket);
-            return client;
+            return std::make_unique<Client>(clientSocket);
         } else {
             throw std::runtime_error("function accept returned with -1 !");
         }
@@ -190,6 +191,7 @@ int ServerSocket::waitTill(const int& sec) {
 }
 
 ServerSocket::~ServerSocket() {
+    ::shutdown(this->server, SD_BOTH);
     ::closesocket(this->server);
     LOG("server with port " << this->port << " destroyed");
 }

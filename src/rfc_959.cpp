@@ -1,6 +1,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <memory>
 #include <sstream>
 #include <string>
 
@@ -88,10 +89,10 @@ std::string list(const std::string& l_path) {
     return names;
 }
 
-void retr(Client* client, const std::string& m_path, size_t m_offset) {
+void retr(const std::unique_ptr<Client>& client, const std::string& m_path, size_t m_offset) {
 
-    if (client == nullptr) {
-        LOG("from sendfile() : client is nullptr returning.");
+    if (!client) {
+        LOG("from retr() : client is nullptr returning.");
         return;
     }
 
@@ -120,7 +121,12 @@ void retr(Client* client, const std::string& m_path, size_t m_offset) {
     }
 }
 
-void stor(Client* client, const std::string& m_path, size_t m_offset) {
+void stor(const std::unique_ptr<Client>& client, const std::string& m_path, size_t m_offset) {
+
+    if (!client) {
+        LOG("from stor() : client is nullptr returning.");
+        return;
+    }
 
     std::ofstream output(m_path, std::ios::binary);
 

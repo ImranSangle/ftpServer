@@ -3,6 +3,7 @@
 #include <arpa/inet.h>
 #include <cstddef>
 #include <ifaddrs.h>
+#include <memory>
 #include <net/if.h>
 #include <netinet/in.h>
 #include <string>
@@ -48,7 +49,7 @@ class ServerSocket {
 
     void start();
 
-    Client* getClient();
+    std::unique_ptr<Client> getClient();
 
     int getPort();
 

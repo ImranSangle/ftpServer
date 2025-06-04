@@ -1,6 +1,7 @@
 #pragma once
 
 #include <_timeval.h>
+#include <memory>
 #include <string>
 #include <winsock2.h>
 
@@ -42,7 +43,7 @@ class ServerSocket {
 
     void start();
 
-    Client* getClient();
+    std::unique_ptr<Client> getClient();
 
     int getPort();
 

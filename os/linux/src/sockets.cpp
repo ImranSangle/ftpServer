@@ -1,6 +1,7 @@
 #include <cstddef>
 #include <cstring>
 #include <iostream>
+#include <memory>
 #include <random>
 #include <set>
 #include <signal.h>
@@ -59,10 +60,10 @@ int Client::m_write(const char* data, const size_t& size) {
 
 void Client::close() {
     ::close(this->id);
-    delete this;
 }
 
 Client::~Client() {
+    ::close(this->id);
     LOG("client destroyed");
 }
 
@@ -146,15 +147,14 @@ void ServerSocket::start() {
     LOG("Server is listening on port " << this->port);
 }
 
-Client* ServerSocket::getClient() {
+std::unique_ptr<Client> ServerSocket::getClient() {
 
     if (result) {
 
         int clientSocket = accept(this->server, 0, 0);
 
         if (!(clientSocket < 0)) {
-            Client* client = new Client(clientSocket);
-            return client;
+            return std::make_unique<Client>(clientSocket);
         } else {
             throw std::runtime_error("function accept returned with -1 !");
         }
@@ -195,6 +195,7 @@ int ServerSocket::waitTill(const int& sec) {
 }
 
 ServerSocket::~ServerSocket() {
+    ::shutdown(this->server, SHUT_RDWR);
     ::close(this->server);
     LOG("server with port " << this->port << " destroyed");
 }
