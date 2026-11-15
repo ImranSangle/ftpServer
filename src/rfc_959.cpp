@@ -76,12 +76,16 @@ std::string list(const std::string& l_path) {
 
     for (const auto& entry : std::filesystem::directory_iterator(l_path)) {
 
+        FSDITRY
+
         if (entry.is_directory()) {
             names += "d" + get_permissions(entry.status().permissions()) + std::to_string(entry.hard_link_count()) + " owner group " + "4096" + format_file_time(entry.last_write_time()) + entry.path().filename().string();
         } else {
             names += "-" + get_permissions(entry.status().permissions()) + std::to_string(entry.hard_link_count()) + " owner group " + std::to_string(entry.file_size()) + format_file_time(entry.last_write_time()) + entry.path().filename().string();
         }
         names += "\r\n";
+
+        FSDICATCH
     }
 
     FSCATCH
