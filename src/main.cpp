@@ -18,13 +18,14 @@
 #include "rfc_959.h"
 #include "sockets.h"
 #include "stringFunctions.h"
+#include "users.h"
 
 #define DATA_START_PORT 3001
 #define DATA_END_PORT 3101
 
 // status codes--------------------------------------------
 static const char* ready = "220 service ready for new user\r\n";
-static const char* askPassword = "331 username okay, password for username\r\n";
+static const char* askPassword = "331 username okay, password for ";
 static const char* loggedIn = "230 logged in, proceed\r\n";
 static const char* ok = "200 command type okay\r\n";
 static const char* syntaxError = "500 syntax error\r\n";
@@ -152,7 +153,7 @@ void SocketsPointerCleaner(Client** dataClient, ServerSocket** dataSocket) {
     }
 }
 
-void serviceWorker(std::unique_ptr<Client> client) {
+void session_thread(std::unique_ptr<Client> client) {
 
     std::unique_ptr<ServerSocket> dataSocket;
     std::unique_ptr<Client> dataClient;
@@ -161,6 +162,7 @@ void serviceWorker(std::unique_ptr<Client> client) {
     std::string ipAddress = getIpAddress();
     std::string renameBuffer;
     std::shared_ptr<std::mutex> mutex = std::make_shared<std::mutex>();
+    User current_session;
 
     client->write(ready);
 
@@ -183,7 +185,7 @@ void serviceWorker(std::unique_ptr<Client> client) {
         std::transform(command.begin(), command.end(), command.begin(), [](unsigned char c) { return std::toupper(c); });
 
         if (readData <= 0) {
-            LOG("client's main connection disconnected closing serviceWorker");
+            LOG("client's main connection disconnected closing session_thread");
             break;
         }
 
@@ -194,7 +196,8 @@ void serviceWorker(std::unique_ptr<Client> client) {
         if (command == "USER") {
 
             LOG("username is correct asking for password");
-            client->write(askPassword);
+            current_session.username = subCommand;
+            client->write((askPassword+current_session.username+"\r\n").c_str());
 
         } else if (command == "PASS") {
 
@@ -547,7 +550,7 @@ void serviceWorker(std::unique_ptr<Client> client) {
         }
     }
 
-    LOG("closing serviceWorker..");
+    LOG("closing session_thread..");
 }
 
 int main() {
@@ -566,9 +569,9 @@ int main() {
 
         std::unique_ptr<Client> client = socket.getClient();
 
-        LOG("new client connected starting serviceWorker & sending service ready");
+        LOG("new client connected starting session_thread & sending service ready");
 
-        std::thread worker(serviceWorker, std::move(client));
+        std::thread worker(session_thread, std::move(client));
 
         worker.detach();
     }
