@@ -27,3 +27,9 @@
     catch (const std::exception& ex) {                                                                 \
         std::cerr << "Exception: " << ex.what() << std::endl;                                          \
     }
+
+#define AUTH_CHECK                               \
+    if (!current_session.is_authenticated) {     \
+        client->write("530 Access denied!\r\n"); \
+        continue;                                \
+    }

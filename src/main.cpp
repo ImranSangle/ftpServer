@@ -42,7 +42,9 @@ static const char* transferComplete = "226 transfer complete\r\n";
 static const char* rnfr = "350 Requested file action pending further information\r\n";
 static const char* rnto = "250 Requested file action okay, file renamed\r\n";
 static const char* rn_error = "503 Can't find the file which has to be renamed.\r\n";
+static const char* relog = "503 Log in with user first\r\n";
 static const char* cant_open_data_conn = "425 Can't open data connection.\r\n";
+static const char* authentication_failed = "530 Authentication failed.\r\n";
 
 std::string make_absolute_path(const Browze& browser, const std::string& l_path) {
 
@@ -166,14 +168,7 @@ void session_thread(std::unique_ptr<Client> client) {
 
     client->write(ready);
 
-#ifdef WIN64
-    Browze path("G:", "/");
-#endif
-
-#ifdef __linux__
-    Browze path("", "/");
-    path.setPrefixPath("/data/data/com.termux/files/home/");
-#endif
+    Browze& path = current_session.path;
 
     while (true) {
 
@@ -195,21 +190,50 @@ void session_thread(std::unique_ptr<Client> client) {
 
         if (command == "USER") {
 
-            LOG("username is correct asking for password");
+            if (current_session.is_authenticated) {
+                client->write("230 Already logged-in!\r\n");
+                continue;
+            }
+
+            LOG("username is okay asking for password");
             current_session.username = subCommand;
-            client->write((askPassword+current_session.username+"\r\n").c_str());
+            current_session.failed_attempt = false;
+            client->write((askPassword + current_session.username + "\r\n").c_str());
 
         } else if (command == "PASS") {
 
-            LOG("password is corrrect asking for method");
-            client->write(loggedIn);
+            if (current_session.is_authenticated) {
+                client->write("230 Already logged-in!\r\n");
+                continue;
+            }
+
+            if (current_session.failed_attempt) {
+                LOG("Previous attempt was failed asking client to relog.");
+                client->write(relog);
+                continue;
+            }
+
+            current_session.password = subCommand;
+            authenticate(current_session);
+            if (current_session.is_authenticated) {
+                LOG("password is corrrect asking for method");
+                client->write(loggedIn);
+            } else {
+                LOG("authentication failed!");
+                current_session.failed_attempt = true;
+                client->write(authentication_failed);
+            }
 
         } else if (command == "TYPE") {
+
+            AUTH_CHECK
 
             LOG("client want's type binary accepting");
             client->write(ok);
 
         } else if (command == "MKD") {
+
+            AUTH_CHECK
 
             LOG("client is asking for creating a directory. Creating..");
 
@@ -221,11 +245,15 @@ void session_thread(std::unique_ptr<Client> client) {
 
         } else if (command == "RNFR") {
 
+            AUTH_CHECK
+
             LOG("client is asking for renaming a file stored into renamebuffer");
             renameBuffer = make_absolute_path(path, subCommand);
             client->write(rnfr);
 
         } else if (command == "RNTO") {
+
+            AUTH_CHECK
 
             LOG("client is asking for rnto renaming a file to..");
             if (renameFile(renameBuffer, make_absolute_path(path, subCommand))) {
@@ -237,6 +265,8 @@ void session_thread(std::unique_ptr<Client> client) {
 
         } else if (command == "SYST") {
 
+            AUTH_CHECK
+
 #ifdef WIN64
             LOG("client is asking for system, sending windows system");
             client->write(systemTypeWindows);
@@ -247,6 +277,8 @@ void session_thread(std::unique_ptr<Client> client) {
 #endif
 
         } else if (command == "CWD") {
+
+            AUTH_CHECK
 
             std::string absolute_path = make_absolute_path(path, subCommand);
 
@@ -268,6 +300,8 @@ void session_thread(std::unique_ptr<Client> client) {
 
         } else if (command == "CDUP") {
 
+            AUTH_CHECK
+
             LOG("path before cdup is " << path.getTrueFullPath());
             path.up();
             client->write((directoryChanged + path.getPath() + "\r\n").c_str());
@@ -275,10 +309,14 @@ void session_thread(std::unique_ptr<Client> client) {
 
         } else if (command == "PWD") {
 
+            AUTH_CHECK
+
             client->write(("257 \"" + path.getPath() + "\"is the current directory\r\n").c_str());
             LOG("client is asking the current working directory sending " << path.getTruePath());
 
         } else if (command == "PASV") {
+
+            AUTH_CHECK
 
             LOG("starting passive mode");
 
@@ -302,6 +340,8 @@ void session_thread(std::unique_ptr<Client> client) {
 
         } else if (command == "NLST") {
 
+            AUTH_CHECK
+
             if (!dataSocket) {
                 client->write("503 PORT or PASV must be issued first\r\n");
             } else {
@@ -318,6 +358,8 @@ void session_thread(std::unique_ptr<Client> client) {
             }
 
         } else if (command == "LIST") {
+
+            AUTH_CHECK
 
             if (!dataSocket) {
                 client->write("503 PORT or PASV must be issued first\r\n");
@@ -349,6 +391,8 @@ void session_thread(std::unique_ptr<Client> client) {
             }
 
         } else if (command == "RETR") {
+
+            AUTH_CHECK
 
             if (!dataSocket) {
                 client->write("503 PORT or PASV must be issued first\r\n");
@@ -389,6 +433,8 @@ void session_thread(std::unique_ptr<Client> client) {
 
         } else if (command == "STOR") {
 
+            AUTH_CHECK
+
             if (!dataSocket) {
                 client->write("503 PORT or PASV must be issued first\r\n");
             } else {
@@ -425,15 +471,21 @@ void session_thread(std::unique_ptr<Client> client) {
 
         } else if (command == "NOOP") {
 
+            AUTH_CHECK
+
             LOG("asking for NOOP sending ok");
             client->write(ok);
 
         } else if (command == "OPTS") {
 
+            AUTH_CHECK
+
             LOG("asking for options sending not ok");
             client->write(ok);
 
         } else if (command == "ABOR") {
+
+            AUTH_CHECK
 
             LOG("asking for abortion aborting..");
             dataClient.reset();
@@ -449,12 +501,16 @@ void session_thread(std::unique_ptr<Client> client) {
 
         } else if (command == "FEAT") {
 
+            AUTH_CHECK
+
             LOG("client is asking for features, sending not found");
             client->write(syntaxError);
 
             //-------------------------------------------RFC_2428-------------------------------------------------------
 
         } else if (command == "EPSV") {
+
+            AUTH_CHECK
 
             LOG("starting epsv mode..");
 
@@ -478,6 +534,8 @@ void session_thread(std::unique_ptr<Client> client) {
 
         } else if (command == "MDTM") {
 
+            AUTH_CHECK
+
             std::string absolute_path = make_absolute_path(path, subCommand);
 
             if (path_exists(absolute_path)) {
@@ -487,6 +545,8 @@ void session_thread(std::unique_ptr<Client> client) {
             }
 
         } else if (command == "MLST") {
+
+            AUTH_CHECK
 
             std::string absolute_path = make_absolute_path(path, subCommand);
 
@@ -500,6 +560,8 @@ void session_thread(std::unique_ptr<Client> client) {
             }
 
         } else if (command == "MLSD") {
+
+            AUTH_CHECK
 
             if (!dataSocket) {
                 client->write("503 PORT or PASV must be issued first\r\n");
@@ -530,11 +592,15 @@ void session_thread(std::unique_ptr<Client> client) {
 
         } else if (command == "REST") {
 
+            AUTH_CHECK
+
             offset = std::stoll(subCommand.c_str());
             LOG("asking for REST setting offset value " << std::to_string(offset));
             client->write(("350 Restarting at " + std::to_string(offset) + ". Send STORE or RETRIEVE to initiate transfer.\r\n").c_str());
 
         } else if (command == "SIZE") {
+
+            AUTH_CHECK
 
             LOG("client is asking for size sending details");
             size_t size = getSize(make_absolute_path(path, subCommand));
@@ -545,6 +611,9 @@ void session_thread(std::unique_ptr<Client> client) {
             }
 
         } else {
+
+            AUTH_CHECK
+
             LOG("no command" << command << " found sending not implemented");
             client->write(notImplemented);
         }
@@ -558,6 +627,8 @@ int main() {
 #ifdef _WIN64
     load_wsa();
 #endif
+
+    load_user_data();
 
     ServerSocket socket(3000);
 
