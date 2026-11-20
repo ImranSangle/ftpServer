@@ -1,5 +1,6 @@
 #include <cstdlib>
 #include <fstream>
+#include <sodium.h>
 #include <stdexcept>
 
 #include "json.hpp"
@@ -9,6 +10,26 @@
 using namespace nlohmann;
 
 static json j_users;
+
+static std::string hash_password(const std::string& password) {
+
+    if (sodium_init() < 0) {
+        throw std::runtime_error("libsodium initialization failed");
+    }
+
+    char hash[crypto_pwhash_STRBYTES];
+
+    if (crypto_pwhash_str(hash, password.c_str(), password.size(), crypto_pwhash_OPSLIMIT_INTERACTIVE, crypto_pwhash_MEMLIMIT_INTERACTIVE) != 0) {
+        throw std::runtime_error("password hashing failed");
+    }
+
+    return std::string(hash);
+}
+
+static bool verify_password(const std::string& stored_hash, const std::string& password) {
+
+    return crypto_pwhash_str_verify(stored_hash.c_str(), password.c_str(), password.size()) == 0;
+}
 
 bool load_user_data() {
 
@@ -27,7 +48,7 @@ bool load_user_data() {
         }
 
     } else {
-        std::runtime_error("Error: HOME Environment variable not set!");
+        throw std::runtime_error("Error: HOME Environment variable not set!");
     }
 
     return true;
@@ -35,7 +56,7 @@ bool load_user_data() {
 
 void authenticate(User& current_session) {
 
-    if (j_users[current_session.username]["password"] == current_session.password) {
+    if (verify_password(j_users[current_session.username]["password"], current_session.password)) {
 
         current_session.is_authenticated = true;
         current_session.path.setPath(std::string(j_users[current_session.username]["path"]).c_str());

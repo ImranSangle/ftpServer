@@ -34,11 +34,12 @@ ${OSFILES})
 
 if(WIN32)
 target_include_directories(ftpServer PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/os/windows/include)
-target_link_libraries(ftpServer PRIVATE ws2_32)
+target_link_libraries(ftpServer PRIVATE ws2_32 sodium)
 endif()
 
 if(LINUX OR ANDROID)
 target_include_directories(ftpServer PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/os/linux/include)
+target_link_libraries(ftpServer PRIVATE sodium)
 endif()
 
 install(TARGETS ftpServer DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/bin)
