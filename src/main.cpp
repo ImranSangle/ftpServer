@@ -235,6 +235,12 @@ void session_thread(std::unique_ptr<Client> client) {
 
             AUTH_CHECK
 
+            if(!current_session.writable){
+              LOG("client is asking to make directory in a non writable session, Declined!");
+              client->write(("550 No permission to create "+subCommand+".\r\n").c_str());
+              continue;
+            }
+
             LOG("client is asking for creating a directory. Creating..");
 
             if (mkd(make_absolute_path(path, subCommand))) {
@@ -254,6 +260,13 @@ void session_thread(std::unique_ptr<Client> client) {
         } else if (command == "RNTO") {
 
             AUTH_CHECK
+
+            if(!current_session.writable){
+              LOG("client  is asking to rename file/folder in a non writable session. Declined!");
+              client->write("553 No permission to rename.\r\n");
+              renameBuffer.clear();
+              continue;
+            }
 
             LOG("client is asking for rnto renaming a file to..");
             if (renameFile(renameBuffer, make_absolute_path(path, subCommand))) {
@@ -434,6 +447,12 @@ void session_thread(std::unique_ptr<Client> client) {
         } else if (command == "STOR") {
 
             AUTH_CHECK
+
+            if(!current_session.writable){
+              LOG("client is asking to store a file in a non writable session. Declined!");
+              client->write(("550 "+subCommand+": Permission denied.\r\n").c_str());
+              continue;
+            }
 
             if (!dataSocket) {
                 client->write("503 PORT or PASV must be issued first\r\n");
