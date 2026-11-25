@@ -4,7 +4,7 @@
 
 #define SYSTEM_TYPE systemTypeWindows
 
-#define DEFAULT_PATH {"C:","/Users"}
+#define DEFAULT_PATH {"C:","/"}
 
 #endif // WIN64
 

@@ -59,7 +59,8 @@ void authenticate(User& current_session) {
     if (verify_password(j_users[current_session.username]["password"], current_session.password)) {
 
         current_session.is_authenticated = true;
-        current_session.path.setPath(std::string(j_users[current_session.username]["path"]).c_str());
+        current_session.path.setDrive(std::string(j_users[current_session.username]["drive"]).c_str());
+        current_session.path.setPrefixPath(std::string(j_users[current_session.username]["path"]).c_str());
         current_session.writable = j_users[current_session.username]["writable"];
     }
 };
