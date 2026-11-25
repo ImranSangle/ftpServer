@@ -2,17 +2,13 @@
 
 #include <string>
 
+#include "macros.h"
 #include "stringFunctions.h"
 
 struct User {
     std::string username;
     std::string password;
-#ifdef WIN32
-    Browze path = {"F:","/"};
-#endif
-#ifdef __linux__
-    Browze path = {"","/"};
-#endif
+    Browze path = DEFAULT_PATH;
     bool writable = false;
     bool is_authenticated = false;
     bool failed_attempt = false;

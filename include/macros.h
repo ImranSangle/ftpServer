@@ -1,5 +1,21 @@
 #pragma once
 
+#ifdef WIN64
+
+#define SYSTEM_TYPE systemTypeWindows
+
+#define DEFAULT_PATH {"C:","/Users"}
+
+#endif // WIN64
+
+#ifdef __linux__
+
+#define SYSTEM_TYPE systemTypeLinux
+
+#define DEFAULT_PATH {"","/"}
+
+#endif // __linux__
+
 #define FSDITRY try {
 
 #define FSDICATCH                                                                                      \

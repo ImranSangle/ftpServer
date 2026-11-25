@@ -235,10 +235,10 @@ void session_thread(std::unique_ptr<Client> client) {
 
             AUTH_CHECK
 
-            if(!current_session.writable){
-              LOG("client is asking to make directory in a non writable session, Declined!");
-              client->write(("550 No permission to create "+subCommand+".\r\n").c_str());
-              continue;
+            if (!current_session.writable) {
+                LOG("client is asking to make directory in a non writable session, Declined!");
+                client->write(("550 No permission to create " + subCommand + ".\r\n").c_str());
+                continue;
             }
 
             LOG("client is asking for creating a directory. Creating..");
@@ -261,11 +261,11 @@ void session_thread(std::unique_ptr<Client> client) {
 
             AUTH_CHECK
 
-            if(!current_session.writable){
-              LOG("client  is asking to rename file/folder in a non writable session. Declined!");
-              client->write("553 No permission to rename.\r\n");
-              renameBuffer.clear();
-              continue;
+            if (!current_session.writable) {
+                LOG("client  is asking to rename file/folder in a non writable session. Declined!");
+                client->write("553 No permission to rename.\r\n");
+                renameBuffer.clear();
+                continue;
             }
 
             LOG("client is asking for rnto renaming a file to..");
@@ -280,14 +280,8 @@ void session_thread(std::unique_ptr<Client> client) {
 
             AUTH_CHECK
 
-#ifdef WIN64
-            LOG("client is asking for system, sending windows system");
-            client->write(systemTypeWindows);
-#endif
-#ifdef __linux__
-            LOG("client is asking for system, sending linux system");
-            client->write(systemTypeLinux);
-#endif
+            LOG("client is asking for system, sending system type.");
+            client->write(SYSTEM_TYPE);
 
         } else if (command == "CWD") {
 
@@ -448,10 +442,10 @@ void session_thread(std::unique_ptr<Client> client) {
 
             AUTH_CHECK
 
-            if(!current_session.writable){
-              LOG("client is asking to store a file in a non writable session. Declined!");
-              client->write(("550 "+subCommand+": Permission denied.\r\n").c_str());
-              continue;
+            if (!current_session.writable) {
+                LOG("client is asking to store a file in a non writable session. Declined!");
+                client->write(("550 " + subCommand + ": Permission denied.\r\n").c_str());
+                continue;
             }
 
             if (!dataSocket) {
